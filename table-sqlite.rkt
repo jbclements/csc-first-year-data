@@ -282,8 +282,6 @@
   (require rackunit)
 
 
-  (check-equal? (name-and-connection #f)
-              (list "temp_4" conn))
 (check-equal? (name-and-connection "zoobah")
               (list "zoobah" file-conn))
 (check-exn #px"can't create table with name"
@@ -382,10 +380,13 @@
   (check-exn #px"table not found"
              (λ () (find-table "squazle")))
 
-  
+
+  (check-equal? (name-and-connection #f)
+                (list "temp_4" conn))  
 )
 
-
+(printf "existing tables in permanent storage: ~v\n"
+        (list-tables file-conn))
 
 ;(check-equal? (table-select t1 '(a quux) '((= ))))
 

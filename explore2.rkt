@@ -7,37 +7,6 @@
          racket/block)
 
 
-(define student-first-quarters
-  (map
-   first
-   (map
-    (λ (group) (sort group < #:key (vref 1)))
-    (group-by
-     (vref 0)
-     (table-select grade-facts-table '(student qtr))))))
-(make-table '(student qtr) student-first-quarters)
-
-(define entry-data
-  (map
-   (λ (group) (list (vector-ref (first group) 1)
-                    (length group)))
-   (group-by (vref 1)
-             student-first-quarters)))
-
-(define plot-entry-data
-  (for/list ([qtr (qtrs-in-range (apply min (map first entry-data))
-                                 (apply max (map first entry-data)))])
-    (vector qtr (first (dict-ref entry-data qtr '(0))))))
-
-#;(plot-file
- (discrete-histogram plot-entry-data)
- #:width 600
- #:height 600
- #:x-label "quarter of first class"
- #:y-label "# of students"
- #:title "students entering the major by quarter, 2005—2016"
- "students-entering.png")
-
 
 (define stu-recs
   (group-by

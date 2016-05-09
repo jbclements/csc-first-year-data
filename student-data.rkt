@@ -7,7 +7,9 @@
 (require racket/runtime-path)
 
 (provide grade-facts-table
-         ap-facts-table)
+         ap-facts-table
+         student-first-qtr-table
+         pre-2152-grade-table)
 
 (require "grades.rkt")
 
@@ -43,7 +45,7 @@
 
 (: cells (Listof (Listof String)))
 (define cells
-  (call-with-input-file (build-path here "student-data-2005-2016.csv")
+  (call-with-input-file "/Users/clements/clements/datasets/student-data-2005-2016.csv"
     (λ (port)
       (csv->list port))))
 
@@ -237,8 +239,25 @@
       (sequence->list
        (table-select grade-facts-table '(student qtr))))
      (Listof (Listof (Vector Any Real)))))))
-(make-table '(student qtr) student-first-quarters
-            #:permanent "student_first_qtr")
+
+  (define student-first-qtr-table
+    (make-table '(student qtr) student-first-quarters
+                #:permanent "student_first_qtr"))
+
+  (: pre-2152s (Sequenceof (Vectorof Any)))
+  (define pre-2152s
+    (table-select student-first-qtr-table '(student)
+                  #:where '((< qtr 2152))))
+
+  (: pre-2152-table Table)
+  (define pre-2152-table
+    (make-table '(student) pre-2152s
+                #:permanent "pre_2152_students"))
+
+  (: pre-2152-grade-table Table)
+  (define pre-2152-grade-table
+    (natural-join pre-2152-table grade-facts-table
+                  #:permanent "pre_2152_grades"))
   
 (printf "done building databases from csv files.\n")
 
@@ -255,6 +274,8 @@
 (define student-first-qtr-table
   (find-table "student_first_qtr"))
 
+(define pre-2152-grade-table
+  (find-table "pre_2152_grades"))
 
 (define g
   (time
