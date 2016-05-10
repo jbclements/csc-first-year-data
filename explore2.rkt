@@ -11,7 +11,7 @@
 (define stu-recs
   (group-by
    (λ (x) (vector-ref x 0))
-   (table-select grade-facts-table '(student qtr class grade))))
+   (table-select post-123-grade-table '(student qtr class grade))))
 
 (define num-students (length stu-recs))
 (printf "number of students: ~v\n"
@@ -56,13 +56,13 @@
    <
    #:key (λ (v) (vector-ref v 0))))
 
-(plot
+(plot #;-file
  (stacked-histogram plot-bins
                     #:colors '(2 1)
                     #:labels '("complete" "not complete"))
  #:y-label "pct. of students"
  #:x-label "# of classes taken"
- #:title "distribution of outcomes"
+ #:title "distribution of outcomes, since 123" 
  #:width 600
  #:height 600
  #;"/tmp/outcomes.png")
@@ -73,6 +73,32 @@
   (λ () (partition (λ (p)
                (second p)) paths))
   list))
+
+;; I need for/accum again!
+(define cumulative-plot-bins
+  (let loop ([plot-bins plot-bins]
+             [fail-so-far 0]
+             [success-so-far 0])
+    (cond [(empty? plot-bins) empty]
+          [else
+           (match-define (vector i (list success fail)) (first plot-bins))
+           (define new-success (+ success success-so-far))
+           (define new-fail (+ fail fail-so-far))
+           (cons (vector i (list new-fail new-success))
+                 (loop (rest plot-bins)
+                       new-fail
+                       new-success))])))
+
+(plot
+ (stacked-histogram cumulative-plot-bins
+                    #:colors '(1 2)
+                    #:labels '("not complete" "complete"))
+ #:y-label "pct. of students (cumulative)"
+ #:x-label "# of classes taken"
+ #:title "cumulative distribution of outcomes, since 123"
+ #:width 600
+ #:height 600
+ #;"/tmp/cumulative-outcomes.png")
 
 
 

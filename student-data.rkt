@@ -9,7 +9,9 @@
 (provide grade-facts-table
          ap-facts-table
          student-first-qtr-table
-         pre-2152-grade-table)
+         pre-2152-grade-table
+         pre-123-grade-table
+         post-123-grade-table)
 
 (require "grades.rkt")
 
@@ -21,6 +23,13 @@
                [make-table
                 ((Listof Symbol)
                  (Sequenceof (Sequenceof Any))
+                 [#:permanent String]
+                 -> Table)]
+               [make-table-from-select
+                (Table
+                 (Listof Any)
+                 [#:where Any]
+                 [#:group-by Any]
                  [#:permanent String]
                  -> Table)]
                [natural-join
@@ -244,20 +253,30 @@
     (make-table '(student qtr) student-first-quarters
                 #:permanent "student_first_qtr"))
 
-  (: pre-2152s (Sequenceof (Vectorof Any)))
-  (define pre-2152s
-    (table-select student-first-qtr-table '(student)
-                  #:where '((< qtr 2152))))
-
-  (: pre-2152-table Table)
-  (define pre-2152-table
-    (make-table '(student) pre-2152s
-                #:permanent "pre_2152_students"))
-
-  (: pre-2152-grade-table Table)
   (define pre-2152-grade-table
-    (natural-join pre-2152-table grade-facts-table
-                  #:permanent "pre_2152_grades"))
+    (natural-join
+     grade-facts-table
+     (make-table-from-select student-first-qtr-table '(student)
+                             #:where '((< qtr 2152))
+                             #:permanent "t1")
+     #:permanent "pre_2152_grades"))
+
+  (define pre-123-grade-table
+    (natural-join
+     grade-facts-table
+     (make-table-from-select student-first-qtr-table '(student)
+                             #:where '((< qtr 2108))
+                             #:permanent "t2")
+     #:permanent "pre_123_grades"))
+
+  (define post-123-grade-table
+    (natural-join
+     grade-facts-table
+     (make-table-from-select student-first-qtr-table '(student)
+                             #:where '((<= 2108 qtr)
+                                       (< qtr 2152))
+                             #:permanent "t3")
+     #:permanent "post_123_grades"))
   
 (printf "done building databases from csv files.\n")
 
@@ -276,6 +295,12 @@
 
 (define pre-2152-grade-table
   (find-table "pre_2152_grades"))
+
+(define pre-123-grade-table
+  (find-table "pre_123_grades"))
+
+(define post-123-grade-table
+  (find-table "post_123_grades"))
 
 (define g
   (time

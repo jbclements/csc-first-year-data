@@ -7,6 +7,12 @@
                                  (sequence/c (sequence/c any/c)))
                                 (#:permanent string?)
                                table?)]
+               [make-table-from-select
+                (->* (table? (listof colspec?))
+                     (#:where any/c
+                      #:group-by (listof symbol?)
+                      #:permanent string?)
+                     table?)]
                [find-table (-> string? table?)]
                [in-table-column (-> table?
                                     symbol?
@@ -175,6 +181,38 @@
 (define (table-select table cols #:where [where-clauses #f]
                       #:group-by [group-by #f])
   (define the-conn (if (temp-table? table) conn file-conn))
+  (query-rows
+   the-conn
+   (string-append
+    (table-select-sql table cols #:where where-clauses
+                      #:group-by group-by)
+    ";")))
+
+;; given a table and a list of columns or (count), and optional
+;; #:where and #:group-by clauses, construct a new table.
+(define (make-table-from-select table cols #:where [where-clauses #f]
+                                #:group-by [group-by #f]
+                                #:permanent [maybe-table-name #f]) 
+  (match-define (list table-name the-conn) (name-and-connection
+                                            maybe-table-name))
+  (when (member table-name (list-tables the-conn))
+    (raise-argument-error 'make-table
+                          "table that doesn't already exist"
+                          4 table cols where-clauses group-by
+                          maybe-table-name))
+  (query-exec
+   the-conn
+   (format "CREATE VIEW ~a as ~a ;"
+           table-name
+           (table-select-sql table cols #:where where-clauses
+                             #:group-by group-by)))
+  table-name)
+
+;; given select parameters, construct the SQL query.
+;; used as an abstraction for both table-select
+;; and make-table-from-select
+(define (table-select-sql table cols #:where [where-clauses #f]
+                      #:group-by [group-by #f])
   (when (empty? cols)
     (raise-argument-error 'table-select "nonempty list of columns"
                           1 table cols where-clauses group-by))
@@ -189,11 +227,8 @@
       [#f ""]
       [(list (? symbol? syms) ...)
        (~a " GROUP BY "(strs->commasep (map col-name->sql syms))" ")]))
-  (query-rows
-   the-conn
-   (~a "SELECT "cols-name-str" FROM "table" "
-       maybe-where maybe-group-by
-       ";")))
+  (~a "SELECT "cols-name-str" FROM "table" "
+      maybe-where maybe-group-by))
 
 ;; given a list of where clauses, return a SQL WHERE string
 ;; currently only handles equality
@@ -204,19 +239,20 @@
                                      " AND "))
                  " "))
 
+(define WHERE-OPS '(< <= =))
+(define (where-op? s)
+  (member s WHERE-OPS))
+
 ;; given a single WHERE clause, return the corresponding SQL string
 (define (parse-where-clause clause)
   (match clause
-    [(list '= a b)
-     (string-append (parse-sql-expr a) " = "
-                    (parse-sql-expr b))]
-    [(list '< a b)
-     (string-append (parse-sql-expr a) " < "
+    [(list (? where-op? op) a b)
+     (string-append (parse-sql-expr a) " "
+                    (symbol->string op)
+                    " "
                     (parse-sql-expr b))]
     [other
      (error 'parse-where-clause "unimplemented 56fef1ed")]))
-
-
 
 
 ;; given a single sql element (symbol, string, number), produce
@@ -376,13 +412,19 @@
    (list->set
     '(#("bob" 3 5) #("bob" 6 5) #("annie" 4 13) #("annie" 4 9))))
 
+  (define t4 (make-table-from-select t1 '(a b zagbar) #:where '((= quux "q"))))
+  (check-equal? (table-select t4 '(a b zagbar))
+                '(#( 8 87 2)
+                  #( 1 88 2)
+                  #( 1 87 2)))
+  
   (check-equal? (find-table t3) t3)
   (check-exn #px"table not found"
              (λ () (find-table "squazle")))
 
 
   (check-equal? (name-and-connection #f)
-                (list "temp_4" conn))  
+                (list "temp_7" conn))  
 )
 
 (printf "existing tables in permanent storage: ~v\n"
