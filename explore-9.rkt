@@ -2,6 +2,7 @@
 
 (require "table-sqlite.rkt"
          "student-data.rkt"
+         "grades.rkt"
          plot)
 
 (define (vref idx)
@@ -13,7 +14,7 @@
    (table-select grade-facts-table '(student qtr class grade))))
 
 (define (grade-map g)
-  (cond [(member g '("A" "A-" "B+" "B" "B-" "C+" "C" "C-"))
+  (cond [(member g success-grades)
          'pass]
         [else 'nopass]))
 
@@ -38,5 +39,5 @@
    #:key second
    ))
 
-()
+
 
