@@ -96,17 +96,21 @@
     (λ (port)
       (csv->list port)))))
 
+;; a bundle contains a list of header rows and a list of
+;; student rows
 (define bundles (block-split-search rows '()))
 (length bundles)
 (apply + (map length (map second bundles)))
 
 ;; for each bundle, identify the field containing the email address
-(for/list ([b (in-list (map second bundles))])
-  (define candidates (remove-duplicates (map email-idx b)))
-  (match candidates
-    [(list c) c]
-    [other (error 'find-email "more than one looks like an email: ~e"
-                  b)]))
+(define email-bundles
+  (for/list ([b (in-list (map second bundles))])
+    (define candidates (remove-duplicates (map email-idx b)))
+    (match candidates
+      [(list c) (map (λ (r) (list-ref r c)) b)]
+      [other (error 'find-email "more than one looks like an email: ~e"
+                    b)])))
+
 
 ;; for each bundle, return the name fields (based on observed
 ;; properties of the bundles)
@@ -232,8 +236,72 @@
      (cons (list advisor year)
            (clean-up-sames rst advisor))]))
 
-(clean-up-sames
- (for/list ([header (in-list (map first bundles))])
-   (process-header header))
- #f)
+(define header-pairs
+  (clean-up-sames
+   (for/list ([header (in-list (map first bundles))])
+     (process-header header))
+   #f))
+
+(define (all-equal? . elts)
+  (match elts
+    ['() #t]
+    [(list e) #t]
+    [(cons a (cons b rst))
+     (and (equal? a b) (all-equal? (cons b rst)))]))
+
+(unless (= (length header-pairs)
+           (length bundles)
+           (length parsed-name-bundles)
+           (length email-bundles))
+  (error "# of bundles should all be the same"))
+(unless (all-equal?
+         (map length (map second bundles))
+         (map length parsed-name-bundles)
+         (map length email-bundles))
+  (error "# of names in each bundle should all be the same"))
+
+(define (justify-name assoc)
+  (for/list ([field (in-list '(f m l s))])
+    (match (dict-ref assoc field '())
+      [(list match) match]
+      ['() ""])))
+
+(require rackunit)
+(check-equal? (justify-name '((f "boo") (l "woo")))
+              '("boo" "" "woo" ""))
+
+(define (csv-write lines)
+  (for ([l (in-list lines)])
+    (display
+     (apply
+      string-append
+      (add-between
+       (map format-cell l)
+       ",")))
+    (newline)))
+
+(define (format-cell c)
+  (match c
+    [(? number?) (number->string c)]
+    [(regexp #px",") (~a "\"" c "\"")]
+    [other c]))
+
+(with-output-to-file "/tmp/foo.csv"
+  (λ ()
+    (csv-write
+     (apply
+      append
+     (for/list ([b (in-list bundles)]
+                [n (in-list parsed-name-bundles)]
+                [h (in-list header-pairs)]
+                [e (in-list email-bundles)])
+       (for/list ([name (in-list n)]
+                  [email (in-list e)]
+                  [original-line (in-list (second b))])
+         (append (justify-name name)
+                 (list email)
+                 h
+                 original-line))
+       ))))
+  #:exists 'truncate)
 
