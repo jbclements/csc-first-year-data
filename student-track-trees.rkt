@@ -5,6 +5,8 @@
 (require/typed "student-tracks.rkt"
                [student-tracks (Listof Track)])
 
+(provide all-year-trees)
+
 (define-type ClassOutcome (U 'pass 'nopass))
 (define-type QtrOutcome (U 'pass 'nopass 'mixed))
 
@@ -54,6 +56,13 @@
   (cond
     [(empty? nonempty-tracks) '()]
     [else
+     (when (not (empty? (filter (λ ([t : Track])
+                                  (< (caar t) this-qtr))
+                                nonempty-tracks)))
+       (raise-argument-error
+        'build-enroll-trees
+        "tracks starting at or after starting qtr"
+        1 tracks))
      (define-values (takers notakers)
        (partition (λ ([track : Track])
                     (= (caar track) this-qtr))
@@ -167,11 +176,69 @@
                        0 '()))
                 (NoTake 0 '())))))
 
-(define earliest-qtr (argmin (λ ([t : Track]) (car (car t)))
-                             student-tracks))
+(define earliest-qtr
+  (apply min (map (λ ([t : Track]) (car (car t))) student-tracks)))
 
-(define big-tree
-  (build-enroll-trees earliest-qtr student-tracks))
+
+;; the year whose fall most closely precedes the first quarter
+;; this student took a class
+(: starting-year (Track -> Natural))
+(define (starting-year track)
+  (+ 2000 (floor (/ (cast (- (caar track) 2008) Natural) 10))))
+
+
+(define by-year
+  (group-by starting-year student-tracks))
+
+(define earliest-year
+  (cast (apply min (map starting-year student-tracks)) Natural))
+(define latest-year
+  (cast (apply max (map starting-year student-tracks)) Natural))
+
+(: year->fall-qtr (Year -> Natural))
+(define (year->fall-qtr year)
+  (+ 2000 (* (cast (- year 2000) Natural) 10) 8))
+
+(check-equal? (year->fall-qtr 2005) 2058)
+
+(define-type Year Natural)
+(: years-tree (Year -> (Listof EnrollT)))
+(define (years-tree year)
+  (define found-set (findf
+                     (λ ([tracks : (Listof Track)])
+                       (= (starting-year (first tracks))
+                          year))
+                     by-year))
+  (cond [(false? found-set)
+         (error 'find-reconds
+                "no records found for year: ~a" year)]
+        [else (build-enroll-trees (year->fall-qtr year) found-set)]))
+
+(define all-year-trees
+  (for/list : (Listof (List Year (Listof EnrollT)))
+    ([year : Natural
+           (ann
+            (in-range (ann earliest-year Nonnegative-Integer)
+                      (ann (add1 latest-year) Integer))
+            (Sequenceof Nonnegative-Integer))])
+    (list year (years-tree year))))
+
+
+(: tree-depth (EnrollT -> Natural))
+(define (tree-depth tree)
+  (match tree
+    [(Take _ _ (OutcomeT _ a _ b _ c))
+     (add1 (max (trees-depth a) (trees-depth b) (trees-depth c)))]
+    [(NoTake _ a)
+     (add1 (trees-depth a))]))
+
+(: trees-depth ((Listof EnrollT) -> Natural))
+(define (trees-depth trees)
+  (cond [(empty? trees) 0]
+        [else (apply max (map tree-depth trees))]))
+
+(map trees-depth (map (inst second Year (Listof EnrollT) Any)
+                      all-year-trees))
 
 
 

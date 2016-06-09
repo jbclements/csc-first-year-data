@@ -14,6 +14,7 @@
                       #:permanent string?)
                      table?)]
                [find-table (-> string? table?)]
+               [table-size (-> table? natural?)]
                [in-table-column (-> table?
                                     symbol?
                                     (sequence/c any/c))]
@@ -34,6 +35,7 @@
 
 (define table? string?)
 (define colspec? (or/c symbol? (list/c 'count)))
+(define natural? exact-nonnegative-integer?)
 
 (define file-conn (sqlite3-connect #:database "/tmp/student-data.sqlite"
                                    #:mode 'create))
@@ -107,6 +109,12 @@
         [else (error 'find-table
                      "table not found: ~e\n"
                      str)]))
+
+;; given a table, return the number of rows in the table
+(define (table-size str)
+  (define the-conn (if (temp-table? str) conn file-conn))
+  (query-value the-conn
+               (format "SELECT COUNT(*) FROM ~a" str)))
 
 ;; construct a view as the join of two tables (or views)
 (define (natural-join t1 t2 #:permanent [maybe-table-name #f])
@@ -402,6 +410,8 @@
  (table-select t3 '(a b zagbar quux trogdor))
  '(#(8 87 2 "q" 2242)
    #(1 87 2 "q" 2242)))
+
+  (check-equal? (table-size t1) 4)
 
   (check-equal?
    (list->set (table-select
