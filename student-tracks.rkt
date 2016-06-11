@@ -16,9 +16,17 @@
   (listof
    (listof
     (list/c natural?
-            (listof (vector/c string? (symbols 'pass 'nopass))))))]))
+            (listof (vector/c classname? (symbols 'pass 'nopass))))))]))
 
 (define natural? exact-nonnegative-integer?)
+(define classname? (symbols 'cpe123 'cpe101 'cpe102 'cpe103))
+
+(define (string->classname str)
+  (match str
+    ["CPE 123" 'cpe123]
+    ["CPE 101" 'cpe101]
+    ["CPE 102" 'cpe102]
+    ["CPE 103" 'cpe103]))
 
 (define (vref idx)
   (λ (v) (vector-ref v idx)))
@@ -62,7 +70,7 @@
       (list
        ((vref 1) (first qtr))
        (for/list ([r (in-list qtr)])
-         (vector ((vref 2) r)
+         (vector (string->classname ((vref 2) r))
                  (grade-map ((vref 3) r))))))))
 
 #;(define h

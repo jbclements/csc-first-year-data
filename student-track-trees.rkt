@@ -5,26 +5,29 @@
 (require/typed "student-tracks.rkt"
                [student-tracks (Listof Track)])
 
-(provide all-year-trees)
+(provide all-year-trees
+         classname-ord)
 
 (define-type ClassOutcome (U 'pass 'nopass))
 (define-type QtrOutcome (U 'pass 'nopass 'mixed))
+(define-type ClassName (U 'cpe123 'cpe101 'cpe102 'cpe103))
 
 (: vref (All (T) (Index -> ((Vectorof T) -> T))))
 (define ((vref n) t)
   (vector-ref t n))
 
-(: class-name ((Vector String ClassOutcome) -> String))
+(: class-name ((Vector ClassName ClassOutcome) -> ClassName))
 (define (class-name c) (vector-ref c 0))
 
-(: class-outcome ((Vector String ClassOutcome) -> ClassOutcome))
+(: class-outcome ((Vector ClassName ClassOutcome) -> ClassOutcome))
 (define (class-outcome c) (vector-ref c 1))
 
 ;; represents the decisions made by students to take or not to take a class
 ;; (though of course the class might just have been full)
 (define-type EnrollT (U Take NoTake))
-(struct Take ([class : (Listof String)] [num : Natural]
-                                        [nexts : OutcomeT])
+(struct Take ([class : (Listof ClassName)]
+              [num : Natural]
+              [nexts : OutcomeT])
   #:transparent)
 (struct NoTake ([num : Natural] [nexts : (Listof EnrollT)])
   #:transparent)
@@ -37,7 +40,16 @@
 
 (define-type Track (Listof QtrTrack))
 (define-type QtrTrack
-  (List Natural (Listof (Vector String ClassOutcome))))
+  (List Natural (Listof (Vector ClassName ClassOutcome))))
+
+;; an ordering on classes:
+(: classname-ord (ClassName -> Natural))
+(define (classname-ord classname)
+  (match classname
+    ['cpe123 0]
+    ['cpe101 1]
+    ['cpe102 2]
+    ['cpe103 3]))
 
 (: next-qtr (Natural -> Natural))
 (define (next-qtr qtr)
@@ -122,39 +134,41 @@
 (check-equal? (grades->outcome '(nopass nopass nopass)) 'nopass)
 
 
-(: classes-taken-in-first-qtr (Track -> (Listof String)))
+(: classes-taken-in-first-qtr (Track -> (Listof ClassName)))
 (define (classes-taken-in-first-qtr track)
   (define qtr-track (first track))
-  (sort (map class-name (second qtr-track)) string<?))
+  (sort (map class-name (second qtr-track))
+        (lambda ([a : ClassName] [b : ClassName])
+          (< (classname-ord a) (classname-ord b)))))
 
 (check-equal?
  (build-enroll-trees
   2158
-  '(((2162 (#("CPE 101" pass))))))
+  '(((2162 (#(cpe101 pass))))))
  (list (NoTake 1
-               (list (Take '("CPE 101")
+               (list (Take '(cpe101)
                            1 (OutcomeT 1 '() 0 '() 0 '()))
                      (NoTake 0 '())))))
 
 (check-equal?
  (build-enroll-trees
   2158
-  '(((2158 (#("CPE 101" pass)))
-     (2162 (#("CPE 102" nopass))))
-    ((2162 (#("CPE 101" pass)))
-     (2164 (#("CPE 102" pass))))
-    ((2158 (#("CPE 101" pass)))
-     (2162 (#("CPE 102" nopass)))
-     (2164 (#("CPE 102" pass)
-            #("CPE 103" pass))))))
- (list (Take (list "CPE 101") 2
+  '(((2158 (#(cpe101 pass)))
+     (2162 (#(cpe102 nopass))))
+    ((2162 (#(cpe101 pass)))
+     (2164 (#(cpe102 pass))))
+    ((2158 (#(cpe101 pass)))
+     (2162 (#(cpe102 nopass)))
+     (2164 (#(cpe102 pass)
+            #(cpe103 pass))))))
+ (list (Take '(cpe101) 2
              (OutcomeT
               2 (list
-                 (Take (list "CPE 102") 2
+                 (Take '(cpe102) 2
                        (OutcomeT
                         0 '()
-                        2 (list (Take (list "CPE 102"
-                                            "CPE 103")
+                        2 (list (Take '(cpe102
+                                        cpe103)
                                       1
                                       (OutcomeT
                                        1 '()
@@ -167,9 +181,9 @@
               0 '()))
        (NoTake 1
                (list
-                (Take '("CPE 101") 1
+                (Take '(cpe101) 1
                       (OutcomeT
-                       1 (list (Take '("CPE 102") 1
+                       1 (list (Take '(cpe102) 1
                                      (OutcomeT 1 '() 0 '() 0 '()))
                                (NoTake 0 '()))
                        0 '()
