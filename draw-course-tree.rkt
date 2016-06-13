@@ -59,21 +59,81 @@
 (define-type Rect (Vector ivl ivl))
 (define-type Label (U (Listof ClassName) QtrOutcome))
 
-(plot
- (rectangles
-  (list (vector (ivl 0.0 1.0)
-                (ivl 0.0 120.0))
-        (vector (ivl 0.0 1.0)
-                (ivl 360.0 365.0)))
-  #:label "CPE 101")
- #:x-min 0
- #:x-max 24)
-
 ;; given a list of enrollment trees, generate the hash that
 ;; will be used to construct the plot.
 (: tree->rects ((Listof EnrollT) -> RectAccum))
 (define (tree->rects trees)
-  (hash))
+  (tree->rects/helper trees 0 0))
+
+;; a helper function that keeps track of a vertical and horizontal
+;; offset
+(: tree->rects/helper (Natural Natural -> (EnrollT -> RectAccum)))
+(define ((tree->rects/helper h-offset v-offset) tree)
+  (cond [(empty? trees) (hash)]
+        [(cons fst rst)7
+         (match )]))
+
+(check-equal?
+ (tree->rects
+  (list (Take '(cpe101) 2
+              (OutcomeT
+               2 (list
+                  (Take '(cpe102) 2
+                        (OutcomeT
+                         0 '()
+                         2 (list (Take '(cpe102
+                                         cpe103)
+                                       1
+                                       (OutcomeT
+                                        1 '()
+                                        0 '()
+                                        0 '()))
+                                 (NoTake 0 '()))
+                         0 '()))
+                  (NoTake 0 '()))
+               0 '()
+               0 '()))
+        (NoTake 1
+                (list
+                 (Take '(cpe101) 1
+                       (OutcomeT
+                        1 (list (Take '(cpe102) 1
+                                      (OutcomeT 1 '() 0 '() 0 '()))
+                                (NoTake 0 '()))
+                        0 '()
+                        0 '()))
+                 (NoTake 0 '())))))
+ (make-immutable-hash
+  (ann
+   (list (cons '(cpe101)
+               (list (vector (ivl 0 1)
+                             (ivl 0 2))
+                     (vector (ivl 3 4)
+                             (ivl 2 3))))
+         (cons '(cpe102)
+               (list (vector (ivl 3 4)
+                             (ivl 0 2))
+                     (vector (ivl 6 7)
+                             (ivl 2 3))))
+         (cons '(cpe102 cpe103)
+               (list (vector (ivl 6 7)
+                             (ivl 0 1))))
+         
+         (cons 'pass
+               (list (vector (ivl 1 2)
+                             (ivl 0 2))
+                     (vector (ivl 7 8)
+                             (ivl 0 1))
+                     (vector (ivl 7 8)
+                             (ivl 2 3))))
+         (cons 'nopass
+               (list (vector (ivl 4 5)
+                             (ivl 0 2))
+                     (vector (ivl 7 8)
+                             (ivl 1 2)))))
+   (Listof (Pairof Label (Listof (Vectorof ivl)))))))
+
+
 
 ;; given a RectAccum, generate the actual plot
 (: rects->plot (RectAccum -> Any))
