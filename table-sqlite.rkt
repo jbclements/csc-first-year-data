@@ -1,6 +1,12 @@
-#lang racket
+#lang racket/base
 
-(require db)
+(require racket/contract
+         racket/match
+         racket/sequence
+         racket/list
+         racket/format
+         racket/set
+         db)
 
 (provide
  (contract-out [make-table (->* ((listof symbol?)
@@ -34,7 +40,10 @@
  table?)
 
 (define table? string?)
-(define colspec? (or/c symbol? (list/c 'count)))
+(define colspec? (or/c symbol?
+                       (list/c 'count)
+                       (list/c 'min symbol?)
+                       (list/c 'max symbol?)))
 (define natural? exact-nonnegative-integer?)
 
 (define file-conn (sqlite3-connect #:database "/tmp/student-data.sqlite"
@@ -127,7 +136,7 @@
               (not (temp-table? t2))
               (not (temp-table? view-name)))
          'okay]
-        [else (error natural-join
+        [else (error 'natural-join
                      (string-append
                       "input and output tables must all be permanent or "
                       "all be temporary"))])
@@ -306,9 +315,12 @@
 (define (col-name->sql/count name)
   (match name
     [(list 'count) "COUNT(*)"]
+    [(list 'min s) (string-append "MIN("(col-name->sql s)")")]
+    [(list 'max s) (string-append "MAX("(col-name->sql s)")")]
     [(? symbol? s) (col-name->sql s)]
+    
     [other (raise-argument-error 'col-name->sql/count
-                                 "symbol or '(count)"
+                                 "column name or aggregate"
                                  0 name)]))
 
 
@@ -367,6 +379,12 @@
                     (list 8 87 2 "q")
                     (list 1 88 2 "q")
                     (list 1 87 2 "q"))))
+
+  ;; trying to add 'min' aggregate:
+  (check-equal? (table-select t1 '(a (min b)) #:group-by '(a))
+                '(#(1 87)
+                  #(3 4)
+                  #(8 87)))
 
   (check-equal? (table-select t1 '(b) #:where '((< 2 a)))
                 '(#(4)

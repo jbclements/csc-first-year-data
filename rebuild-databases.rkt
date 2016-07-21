@@ -4,8 +4,6 @@
 
 ;; EDIT: 2016-05-04 (572a) - looking at new data, going back to 2005.
 
-(require racket/runtime-path)
-
 (require "grades.rkt")
 
 (require/typed csv-reading
@@ -41,21 +39,22 @@
 
 ;; rebuild the student databases
 
-
-(define-runtime-path here ".")
-
+;; a list of lists representing the cells in the csv file
 (: cells (Listof (Listof String)))
 (define cells
   (call-with-input-file "/Users/clements/clements/datasets/student-data-2005-2016.csv"
     (λ (port)
       (csv->list port))))
 
+;; the first row (presumably column labels)
 (: label-row (Listof String))
 (define label-row (first cells))
 
+;; the rest of the rows
 (: non-label-rows (Listof (Listof String)))
 (define non-label-rows (rest cells))
 
+;; sanity check on the labels:
 ;; yikes... just insist that the labels be these:
 (unless (equal?
          label-row
@@ -85,9 +84,17 @@
            "SCORE"))
   (error 'label-row "unexpected label row, please check code below."))
 
-(define id-col 2)
-(define AP-TEST-NAME-COL 22)
-(define AP-TEST-SCORE-COL 23)
+;; find the index of an element
+(: find-pos (All (T) (T (Listof T) -> Natural)))
+(define (find-pos elt l)
+  (let loop ([remaining l] [i : Natural 0])
+    (cond [(empty? remaining) (error 'find-pos "couldn't find element")]
+          [else (cond [(equal? (first remaining) elt) i]
+                      [else (loop (cdr remaining) (add1 i))])])))
+
+(define ID-COL (find-pos "EMPLID" label-row))
+(define AP-TEST-NAME-COL (find-pos "TEST" label-row))
+(define AP-TEST-SCORE-COL (find-pos "SCORE" label-row))
 
 (: GOOD-LABELS-COUNT Natural)
 (define GOOD-LABELS-COUNT 24)
@@ -145,7 +152,7 @@
    (for/list : (Listof (Listof String))
      ([idx : Natural (in-list class-info-cols)])
      (define cols (take (drop row idx) 3))
-     (cons (list-ref row id-col)
+     (cons (list-ref row ID-COL)
            cols)))))
 
   (: string->number/checked (String -> Number))
@@ -171,7 +178,7 @@
 
 (: row->test-facts ((Listof String) -> (Listof String)))
 (define (row->test-facts row)
-  (cons (list-ref row id-col)
+  (cons (list-ref row ID-COL)
         (take (drop row AP-TEST-SCORE-COL) 1)))
 
 (: non-blank-test-fact ((Listof String) -> Boolean))
@@ -195,6 +202,9 @@
                 all-test-facts
                 #:permanent "ap_scores"
                 ))
+
+;; this code is probably redundant, could use "first-quarter"
+;; list defined below.
 
   ;; create a view without the early students:
   (: early-students (Listof String))
