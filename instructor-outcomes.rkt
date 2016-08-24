@@ -46,7 +46,7 @@
 #;(natural-join first-time-103s
                 grade-facts-table
                 #:permanent "ft_103_grades" )
-
+natural-join
 (define first-time-103-grades
   (find-table "ft_103_grades"))
 

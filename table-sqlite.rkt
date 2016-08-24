@@ -36,6 +36,9 @@
                [natural-join (->* (table? table?)
                                   (#:permanent string?)
                                   table?)]
+               #;[inner-join (->* (table? table? (listof colspec?))
+                                (#:permanent string?)
+                                table?)]
                [back-door/rows (-> string? boolean? any/c)])
  table?)
 
@@ -82,10 +85,10 @@
                           2 names dataseq maybe-table-name))
   (query-exec
    the-conn
-   (format "CREATE TABLE ~a ~a;" table-name col-name-str))
+   (format "CREATE TABLE ~a ~a;" (name->sql table-name) col-name-str))
   (define insert-stmt
     (string-append
-     (format "INSERT INTO ~a VALUES " table-name)
+     (format "INSERT INTO ~a VALUES " (name->sql table-name))
      (parens (strs->commasep
               (for/list ([i (in-range (length names))]) "?")))
      ";"))
@@ -123,7 +126,7 @@
 (define (table-size str)
   (define the-conn (if (temp-table? str) conn file-conn))
   (query-value the-conn
-               (format "SELECT COUNT(*) FROM ~a" str)))
+               (format "SELECT COUNT(*) FROM ~a" (name->sql str))))
 
 ;; construct a view as the join of two tables (or views)
 (define (natural-join t1 t2 #:permanent [maybe-table-name #f])
@@ -143,7 +146,30 @@
   (query-exec
    the-conn
    (format "CREATE VIEW ~a AS SELECT * FROM ~a NATURAL JOIN ~a;"
-           view-name t1 t2))
+           (name->sql view-name) (name->sql t1) (name->sql t2)))
+  view-name)
+
+;; construct a view as the inner join of two tables (or views)
+(define (inner-join t1 t2 cols #:permanent [maybe-table-name #f])
+  (match-define (list view-name the-conn)
+    (name-and-connection maybe-table-name))
+  (cond [(and (temp-table? t1) (temp-table? t2) (temp-table? view-name))
+         'okay]
+        [(and (not (temp-table? t1))
+              (not (temp-table? t2))
+              (not (temp-table? view-name)))
+         'okay]
+        [else (error 'natural-join
+                     (string-append
+                      "input and output tables must all be permanent or "
+                      "all be temporary"))])
+  (query-exec
+   the-conn
+   (format "CREATE VIEW ~a AS SELECT * FROM ~a INNER JOIN ~a USING ~a;"
+           (name->sql view-name)
+           (name->sql t1)
+           (name->sql t2)
+           (col-names->col-name-str cols)))
   view-name)
 
 ;; convert a list of symbols to a parenthesized, quoted list
@@ -153,29 +179,26 @@
     (raise-argument-error 'col-names->col-name-str
                           "unique names" 0 names))
   (define col-name-strings
-    (map col-name->sql names))
+    (map name->sql names))
   (parens (strs->commasep col-name-strings)))
 
 ;; return the set of values (no dupes) in a column of a table
 (define (in-table-column table column)
   (define the-conn (if (temp-table? table) conn file-conn))
-  (define col-str (col-name->sql column))
   (query-list
    the-conn
    (format "SELECT ~a FROM ~a GROUP BY ~a;"
-           column table column)))
+           (name->sql column) (name->sql table) (name->sql column))))
 
 ;; given a table and two columns (from and to) and a value
 ;; in the 'from' column, return all values in the 'to' column
 ;; that match. no deduplication.
 (define (table-ref table from to val)
   (define the-conn (if (temp-table? table) conn file-conn))
-  (define from-str (col-name->sql from))
-  (define to-str (col-name->sql to))
   (query-list
    the-conn
    (format "SELECT ~a from ~a WHERE ~a = ?"
-           to-str table from-str)
+           (name->sql to) (name->sql table) (name->sql from))
    val))
 
 ;; same as table-ref, but returns exactly one
@@ -220,7 +243,7 @@
   (query-exec
    the-conn
    (format "CREATE VIEW ~a as ~a ;"
-           table-name
+           (name->sql table-name)
            (table-select-sql table cols #:where where-clauses
                              #:group-by group-by)))
   table-name)
@@ -243,8 +266,8 @@
     (match group-by
       [#f ""]
       [(list (? symbol? syms) ...)
-       (~a " GROUP BY "(strs->commasep (map col-name->sql syms))" ")]))
-  (~a "SELECT "cols-name-str" FROM "table" "
+       (~a " GROUP BY "(strs->commasep (map name->sql syms))" ")]))
+  (~a "SELECT "cols-name-str" FROM "(name->sql table)" "
       maybe-where maybe-group-by))
 
 ;; given a list of where clauses, return a SQL WHERE string
@@ -276,7 +299,7 @@
 ;; the corresponding sql string
 (define (parse-sql-expr e)
   (match e
-    [(? symbol? e) (col-name->sql e)]
+    [(? symbol? e) (name->sql e)]
     [(and (? string? e)
           ;; not clear what kind of strings sqlite accepts.
           ;; being conservative for now (no internet connection to
@@ -302,8 +325,13 @@
   (not (not (regexp-match #px"^temp_[0-9]+$" table))))
 
 ;; map a column name symbol to a quoted string:
-(define (col-name->sql name)
-  (define name-str (symbol->string name))
+(define (name->sql name)
+  (define name-str (cond [(symbol? name) (symbol->string name)]
+                         [(string? name) name]
+                         [else (raise-argument-error
+                                'name->sql
+                                "string or symbol"
+                                0 name)]))
   (unless (regexp-match #px"^[a-zA-Z0-9_]+$" name-str)
     (error
      'col-name->quoted-str
@@ -315,9 +343,9 @@
 (define (col-name->sql/count name)
   (match name
     [(list 'count) "COUNT(*)"]
-    [(list 'min s) (string-append "MIN("(col-name->sql s)")")]
-    [(list 'max s) (string-append "MAX("(col-name->sql s)")")]
-    [(? symbol? s) (col-name->sql s)]
+    [(list 'min s) (string-append "MIN("(name->sql s)")")]
+    [(list 'max s) (string-append "MAX("(name->sql s)")")]
+    [(? symbol? s) (name->sql s)]
     
     [other (raise-argument-error 'col-name->sql/count
                                  "column name or aggregate"
@@ -336,7 +364,6 @@
 
 (module+ test
   (require rackunit)
-
 
 (check-equal? (name-and-connection "zoobah")
               (list "zoobah" file-conn))
@@ -362,7 +389,7 @@
 (check-equal? (parse-sql-expr 'abc) "\"abc\"")
 
 
-(check-equal? (col-name->sql 'ooth) "\"ooth\"")
+(check-equal? (name->sql 'ooth) "\"ooth\"")
 (check-equal? (col-names->col-name-str '(a b c))
               "(\"a\",\"b\",\"c\")")
 (check-equal? (col-names->col-name-str '(aaa b c))
@@ -440,6 +467,49 @@
    (list->set
     '(#("bob" 3 5) #("bob" 6 5) #("annie" 4 13) #("annie" 4 9))))
 
+  (check-equal?
+   (list->set
+    (table-select
+     (inner-join
+      (make-table '(student score1) '(#("bob" 3) #("annie" 4) #("bob" 6)))
+      (make-table '(student score2) '(#("bob" 5) #("annie" 13) #("annie" 9)))
+      '(student))
+    '(student score1 score2)))
+   (list->set
+    '(#("bob" 3 5) #("bob" 6 5) #("annie" 4 13) #("annie" 4 9))))
+
+  (check-equal?
+   (list->set
+    (table-select
+     (inner-join
+      (make-table '(student a b) '(#("bob" 3 8)
+                                   #("annie" 4 9)
+                                   #("bob" 6 12)))
+      (make-table '(student a c) '(#("bob" 5 22)
+                                   #("annie" 13 2)
+                                   #("annie" 9 87)))
+      '(student))
+    '(student a b c)))
+   (list->set
+    '(#("bob" 3 8 22)
+      #("bob" 6 12 22)
+      #("annie" 4 9 2) #("annie" 4 9 87))))
+
+  (check-equal?
+   (list->set
+    (table-select
+     (inner-join
+      (make-table '(student a b) '(#("bob" 3 8)
+                                   #("annie" 4 9)
+                                   #("bob" 6 12)))
+      (make-table '(student a c) '(#("bob" 5 22)
+                                   #("annie" 13 2)
+                                   #("annie" 9 87)))
+      '(student a))
+    '(student a b c)))
+   (list->set
+    '()))
+
   (define t4 (make-table-from-select t1 '(a b zagbar) #:where '((= quux "q"))))
   (check-equal? (table-select t4 '(a b zagbar))
                 '(#( 8 87 2)
@@ -452,7 +522,7 @@
 
 
   (check-equal? (name-and-connection #f)
-                (list "temp_7" conn))  
+                (list "temp_16" conn))  
 )
 
 (printf "existing tables in permanent storage: ~v\n"
