@@ -41,8 +41,6 @@
    #:use-existing #t
    ))
 
-
-
 (define first-time-102s
   (make-table '(student qtr)
               (table-select grade-facts-table '(student (min qtr))
@@ -58,7 +56,24 @@
               #:permanent "ft_102_grades"
               #:use-existing #t))
 
+(define has-ap
+  (make-table-from-select ap-facts-table '(student)
+                          #:group-by '(student)
+                          #:permanent "students_with_ap"
+                          #:use-existing #t))
 
+;; hack to extract students without ap:
+(define no-ap-students
+  (remove* (sequence->list
+            (in-table-column has-ap 'student))
+           (sequence->list
+            (in-table-column grade-facts-table 'student))))
+
+(define no-has-ap
+  (make-table '(student)
+              (map vector no-ap-students)
+              #:permanent "students_without_ap"
+              #:use-existing #t))
 
 (define pre-2158-123-instructors
   (make-table-from-select
@@ -67,23 +82,115 @@
    #:permanent "pre_2158_123_instructors"
    #:use-existing #t))
 
+(table-select pre-2158-123-instructors
+              '(instructor (count))
+              #:group-by '(instructor))
+
+;; in order to count the students that were majors
+;; but never made it to 102, we need a count of the students
+;; 
+(let ()
+  (define majors-by-instructor
+    (table-select
+     (make-table-from-select (inner-join pre-2158-123-instructors
+                                         grade-facts-table
+                                         '(student)
+                                         #:permanent "ijtemp5"
+                                         #:use-existing #t)
+                             '(instructor student)
+                             #:group-by '(student)
+                             #:permanent "ijtemp4"
+                             #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
+
+  (with-output-to-file "/tmp/tot-students.txt"
+    (λ ()
+      (for ([v majors-by-instructor])
+        (apply printf "~v, ~v\n" (vector->list v))))
+    #:exists 'truncate))
+
+
+(define pre-2158-123-instructors-with-ap
+  (inner-join pre-2158-123-instructors
+              has-ap
+              '(student)
+              #:permanent "pre_5_123_with_ap"
+              #:use-existing #t))
+
+(define pre-2158-123-instructors-without-ap
+  (inner-join pre-2158-123-instructors
+              no-has-ap
+              '(student)
+              #:permanent "pre_5_123_without_ap"
+              #:use-existing #t))
+
+(printf "# of students in population that have an ap score: ~v\n"
+        (table-size pre-2158-123-instructors-with-ap))
+
 (define instructor-grades-102
   (natural-join first-time-102-grades
                 pre-2158-123-instructors
                 #:permanent "instructor_grades_102"
                 #:use-existing #t))
 
+(define instructor-grades-102-with-ap
+  (natural-join first-time-102-grades
+                pre-2158-123-instructors-with-ap
+                #:permanent "instructor_grades_102_with_ap"
+                #:use-existing #t))
 
-(define results
-  (table-select instructor-grades-102 '(instructor grade)))
+(define instructor-grades-102-without-ap
+  (natural-join first-time-102-grades
+                pre-2158-123-instructors-without-ap
+                #:permanent "instructor_grades_102_without_ap"
+                #:use-existing #t))
 
-(sequence-length results)
-#;(take (sequence->list results) 10)
 
-(with-output-to-file "/tmp/gg.txt"
-  (λ ()
-    (for ([v results])
-      (apply printf "~v, ~v\n" (vector->list v)))))
+
+
+
+(let ()
+  (define results
+    (table-select instructor-grades-102 '(instructor grade (count))
+                  #:group-by '(instructor grade)))
+
+  (sequence-length results)
+  #;(take (sequence->list results) 10)
+
+  (with-output-to-file "/tmp/gg1.txt"
+    (λ ()
+      (for ([v results])
+        (apply printf "~v, ~v, ~v\n" (vector->list v))))
+    #:exists 'truncate))
+
+(let ()
+  (define results
+    (table-select instructor-grades-102-with-ap '(instructor grade (count))
+                  #:group-by '(instructor grade)))
+  
+  (sequence-length results)
+  #;(take (sequence->list results) 10)
+
+  (with-output-to-file "/tmp/gg2.txt"
+    (λ ()
+      (for ([v results])
+        (apply printf "~v, ~v, ~v\n" (vector->list v))))
+    #:exists 'truncate))
+
+(let ()
+  (define results
+    (table-select instructor-grades-102-without-ap '(instructor grade (count))
+                  #:group-by '(instructor grade)))
+
+  (sequence-length results)
+  #;(take (sequence->list results) 10)
+
+  (with-output-to-file "/tmp/gg3.txt"
+    (λ ()
+      (for ([v results])
+        (apply printf "~v, ~v, ~v\n" (vector->list v))))
+    #:exists 'truncate))
 
 
 

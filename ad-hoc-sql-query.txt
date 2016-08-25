@@ -1,0 +1,212 @@
+"--*** Enrolled CPE-CSC-SE Students ***
+/* =====================================================================================================
+   Purpose:
+        Computer Science Program would like information on students who were ever in the Majors of
+           Computer Engineering, Computer Science and Software Engineering Between 2005 and 2016
+           to analyze their grade in CPE 101, CPE 102, CPE 103 and CPE 123.
+
+   Include score for CSC AP Test #31.
+
+   Exclude deceased students.
+
+   Created By:  Manny Magaña      Date:   4-29-2016
+          For:  John Clements     clements@calpoly.edu        756-6528
+   =====================================================================================================
+*/
+SELECT DISTINCT
+         st.First_Name,
+         st.Last_Name,
+         p.emplid,
+         p.first_term,
+         --p.first_major_cd,
+         p.first_major,
+         p.first_class_level,
+
+         lu.last_term_code  AS  Last_Term,
+         --lu.Last_Major_Cd,
+         lu.Last_Major,
+         lu.Last_Term,
+         lu.Last_Class_Level,
+
+         cl1.term_code,
+         cl1.CPE_Class,
+         cl1.grade,
+         cl2.term_code,
+         cl2.CPE_Class,
+         cl2.grade,
+         cl3.term_code,
+         cl3.CPE_Class,
+         cl3.grade,
+         cl4.term_code,
+         cl4.CPE_Class,
+         cl4.grade,
+         a31.Test,
+         a31.score
+FROM
+        (--*** Name ***
+         Select
+                  s.state_id            AS  Emplid,
+                  s.primary_first_name  AS  First_Name,
+                  s.primary_last_name   AS  Last_Name
+         From
+                  Warehouse.Student       S
+        )  ST,
+
+        (--*** Info for First term. ***
+         Select
+                 mx.emplid,
+                 t.sp_academic_career_code  AS  First_Acad_Career,
+                 t.major_code   AS  First_Major_Cd,
+                 t.major_descr  AS  First_Major,
+                 t.term_code    AS  First_Term,
+                 t.bot_class_level_sdescr  AS  First_Class_Level
+         From
+                 Warehouse.Student_Program_Progress_Term  T,
+                (--*** First Term student in CPE, CSC, SE ***
+                 select distinct
+                         t2.sp_emplid  AS  Emplid,
+                         MIN(t2.term_code)  AS  First_Term_Cd
+                 from
+                         Warehouse.Student_Program_Progress_Term  T2
+                 where
+                         t2.term_units_attempted > 0
+                     And t2.major_code IN ('CPE','CSC','SE')
+                     And t2.term_code Between '2052' and '2162'
+                     And t2.sp_academic_career_code = 'UGRD'
+                 group by  t2.sp_emplid
+                 order by  t2.sp_emplid
+                )  MX
+         Where
+                 t.sp_emplid = mx.emplid
+             And t.term_code = mx.First_Term_Cd
+             And t.major_code IS NOT Null
+         Order By  mx.emplid
+        )  P,
+        --*** End of First term. ***
+
+       (--*** Last Term as UGRD ***
+        SELECT
+                lt.emplid,
+                lt.last_term_code,
+                pt.sp_academic_career_code  AS  Last_Acad_Career,
+                pt.major_code   AS  Last_Major_Cd,
+                pt.major_descr  AS  Last_Major,
+                pt.term_ldescr  AS  Last_Term,
+                pt.bot_class_level_sdescr  AS  Last_Class_Level
+        FROM
+                Warehouse.Student_Program_Progress_Term  PT,
+                (--*** Last term. ***
+                 Select Distinct
+                         t.sp_emplid  AS  Emplid,
+                         MAX(t.term_code)  AS  Last_Term_Code
+                 From
+                         Warehouse.Student_Program_Progress_Term  T,
+                        (--*** First Term CPE, CSC, SE student ***
+                         select distinct
+                                 t2.sp_emplid  AS  Emplid,
+                                 MIN(t2.term_code)  AS  First_Term_Cd
+                         from
+                                 Warehouse.Student_Program_Progress_Term  T2
+                         where
+                                 t2.term_units_attempted > 0
+                             And t2.major_code IN ('CPE','CSC','SE')
+                             And t2.term_code Between '2052' and '2162'
+                             And t2.sp_academic_career_code = 'UGRD'
+                         group by  t2.sp_emplid
+                         Order by  t2.sp_emplid
+                        )  MN
+                 Where
+                         mn.emplid = t.sp_emplid
+                     And t.major_code IS NOT Null
+                     And t.sp_academic_career_code = 'UGRD'
+                     And t.term_units_attempted > 0
+                 Group By  t.sp_emplid
+                 Order By  Emplid
+                )  LT
+                --*** End of Last term. ***
+        WHERE
+                 lt.emplid = pt.sp_emplid
+            AND  lt.last_term_code = pt.term_code
+            AND  pt.major_code IS NOT Null
+            AND  pt.sp_academic_career_code = 'UGRD'
+       )   LU,
+
+        (--*** CPE 101 ***
+         Select
+                  e.emplid,
+                  e.term_code,
+                  e.subject_code || ' ' || e.catalog_nbr  AS  CPE_Class,
+                  e.grade
+         From
+                  Warehouse.Student_Enroll  E
+         Where
+                  (e.subject_code = 'CPE'  and  e.catalog_nbr = '101')
+             And  e.term_code < '2164'
+             And e.grade IS NOT Null
+        )   CL1,
+
+        (--*** CPE 102 ***
+         Select
+                  e.emplid,
+                  e.term_code,
+                  e.subject_code || ' ' || e.catalog_nbr  AS  CPE_Class,
+                  e.grade
+         From
+                  Warehouse.Student_Enroll  E
+         Where
+                  (e.subject_code = 'CPE'  and  e.catalog_nbr = '102')
+             And  e.term_code < '2164'
+             And e.grade IS NOT Null
+        )   CL2,
+
+        (--*** CPE 103 ***
+         Select
+                  e.emplid,
+                  e.term_code,
+                  e.subject_code || ' ' || e.catalog_nbr  AS  CPE_Class,
+                  e.grade
+         From
+                  Warehouse.Student_Enroll  E
+         Where
+                  (e.subject_code = 'CPE'  and  e.catalog_nbr = '103')
+             And  e.term_code < '2164'
+             And e.grade IS NOT Null
+        )   CL3,
+
+        (--*** CPE 123 ***
+         Select
+                  e.emplid,
+                  e.term_code,
+                  e.subject_code || ' ' || e.catalog_nbr  AS  CPE_Class,
+                  e.grade
+         From
+                  Warehouse.Student_Enroll  E
+         Where
+                  (e.subject_code = 'CPE'  and  e.catalog_nbr = '123')
+             And  e.term_code < '2164'
+             And e.grade IS NOT Null
+        )   CL4,
+
+        (--*** AP Test 31 ***
+         Select Distinct
+                 tst.emplid,
+                 tst.test_code || ' ' || tst.test_component_code  AS  Test,
+                 tst.score
+         From
+                 Warehouse.Student_Test_Detail  TST
+         Where
+                 tst.test_component_code = '31'
+             And tst.transfer_status_sdescr = 'Posted'
+             And tst.test_code = 'AP'
+             And tst.subject = 'CSC'
+                 --***And tst.catalog_nbr <> '1TR'
+        )   A31
+WHERE
+         p.emplid = lu.emplid(+)
+    AND  p.emplid = st.emplid(+)
+    AND  p.emplid = cl1.emplid(+)
+    AND  p.emplid = cl2.emplid(+)
+    AND  p.emplid = cl3.emplid(+)
+    AND  p.emplid = cl4.emplid(+)
+    AND  p.emplid = a31.emplid(+)
+ORDER BY  last_name, first_name"
