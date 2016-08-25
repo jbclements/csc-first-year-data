@@ -26,49 +26,64 @@
                 "string of length <= 9"
                 0 s)]))
 
-(define student-table
-  (make-table '(instructor student)
-   (for/list ([l (in-list (rest lines))])
-     (vector (list-ref l 6)
-           (pad-to-9 (list-ref l 8))))
-   #:permanent "student_instructors_123"
-   ))
-
-#;(make-table-from-select grade-facts-table '(student (min qtr))
-                        #:where '((= class "CPE 103"))
-                        #:group-by '(student)
-                        #:permanent "first_time_103")
-
-(define first-time-103s
-  (find-table "first_time_103"))
-
-
-#;(natural-join first-time-103s
-                grade-facts-table
-                #:permanent "ft_103_grades" )
-natural-join
-(define first-time-103-grades
-  (find-table "ft_103_grades"))
+(define (qtr-text->qtr str)
+  (match str
+    [(regexp #px"^Fall Quarter ([[:digit:]]+)$" (list _ y))
+     (+ 2008 (* 10 (modulo (string->number y) 100)))]))
 
 (define student-123-instructors
-  (find-table "student_instructors_123"))
+  (make-table '(instructor student 123_qtr)
+   (for/list ([l (in-list (rest lines))])
+     (vector (list-ref l 6)
+             (pad-to-9 (list-ref l 8))
+             (qtr-text->qtr (list-ref l 0))))
+   #:permanent "student_instructors_123"
+   #:use-existing #t
+   ))
 
 
-#;(define results
-  (table-select first-time-103-grades '(student grade)))
 
-#;(natural-join first-time-103-grades
-              student-123-instructors
-              #:permanent "instructor_grades")
+(define first-time-102s
+  (make-table '(student qtr)
+              (table-select grade-facts-table '(student (min qtr))
+                            #:where '((= class "CPE 102"))
+                            #:group-by '(student))
+              #:permanent "first_time_102"
+              #:use-existing #t))
 
-(define instructor-grades
-  (find-table "instructor_grades"))
+(define first-time-102-grades
+  (inner-join first-time-102s
+              grade-facts-table
+              '(student qtr)
+              #:permanent "ft_102_grades"
+              #:use-existing #t))
+
+
+
+(define pre-2158-123-instructors
+  (make-table-from-select
+   student-123-instructors '(student instructor)
+   #:where '((< 123_qtr 2158))
+   #:permanent "pre_2158_123_instructors"
+   #:use-existing #t))
+
+(define instructor-grades-102
+  (natural-join first-time-102-grades
+                pre-2158-123-instructors
+                #:permanent "instructor_grades_102"
+                #:use-existing #t))
+
 
 (define results
-  (table-select instructor-grades '(instructor grade)))
+  (table-select instructor-grades-102 '(instructor grade)))
 
 (sequence-length results)
 #;(take (sequence->list results) 10)
+
+(with-output-to-file "/tmp/gg.txt"
+  (λ ()
+    (for ([v results])
+      (apply printf "~v, ~v\n" (vector->list v)))))
 
 
 

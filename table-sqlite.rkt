@@ -11,13 +11,15 @@
 (provide
  (contract-out [make-table (->* ((listof symbol?)
                                  (sequence/c (sequence/c any/c)))
-                                (#:permanent string?)
+                                (#:permanent string?
+                                 #:use-existing boolean?)
                                table?)]
                [make-table-from-select
                 (->* (table? (listof colspec?))
                      (#:where any/c
                       #:group-by (listof symbol?)
-                      #:permanent string?)
+                      #:permanent string?
+                      #:use-existing boolean?)
                      table?)]
                [find-table (-> string? table?)]
                [table-size (-> table? natural?)]
@@ -34,10 +36,12 @@
                                    #:group-by (listof symbol?))
                                   (sequence/c (vectorof any/c)))]
                [natural-join (->* (table? table?)
-                                  (#:permanent string?)
+                                  (#:permanent string?
+                                   #:use-existing boolean?)
                                   table?)]
-               #;[inner-join (->* (table? table? (listof colspec?))
-                                (#:permanent string?)
+               [inner-join (->* (table? table? (listof colspec?))
+                                (#:permanent string?
+                                 #:use-existing boolean?)
                                 table?)]
                [back-door/rows (-> string? boolean? any/c)])
  table?)
@@ -64,40 +68,47 @@
 
 ;(: make-table ((Listof Symbol) (Sequenceof (Sequenceof Any)) -> Table))
 ;(: make-table ((Listof Symbol) (Sequenceof (Sequenceof Any)) -> Table))
-(define (make-table names dataseq #:permanent [maybe-table-name #f]) 
-  (define name-count (length names))
-  ;(: data (Listof (Vectorof Any)))
-  (define data
-    (for/list ([row dataseq])
-      (define vec (sequence->vector row))
-      (unless (= (vector-length vec) name-count)
-        (error 'make-table
-               "expected all rows to be of length equal to \
+(define (make-table names dataseq
+                    #:permanent [maybe-table-name #f]
+                    #:use-existing [use-existing? #f])
+  
+  (match-define (list table-name the-conn)
+    (name-and-connection maybe-table-name))
+  (cond
+    [(member table-name (list-tables the-conn))
+     (cond [use-existing? table-name]
+           [else
+            (raise-argument-error 'make-table
+                                  "table that doesn't already exist"
+                                  2 names dataseq maybe-table-name)])]
+    [else
+     (define name-count (length names))
+     ;(: data (Listof (Vectorof Any)))
+     (define data
+       (for/list ([row dataseq])
+         (define vec (sequence->vector row))
+         (unless (= (vector-length vec) name-count)
+           (error 'make-table
+                  "expected all rows to be of length equal to \
 # of names (~v), got row: ~e"
-               name-count vec))
-      vec))
-  (define col-name-str (col-names->col-name-str names))
-  (match-define (list table-name the-conn) (name-and-connection
-                                            maybe-table-name))
-  (when (member table-name (list-tables the-conn))
-    (raise-argument-error 'make-table
-                          "table that doesn't already exist"
-                          2 names dataseq maybe-table-name))
-  (query-exec
-   the-conn
-   (format "CREATE TABLE ~a ~a;" (name->sql table-name) col-name-str))
-  (define insert-stmt
-    (string-append
-     (format "INSERT INTO ~a VALUES " (name->sql table-name))
-     (parens (strs->commasep
-              (for/list ([i (in-range (length names))]) "?")))
-     ";"))
-  (for ([row dataseq])
-    (apply query-exec
-           the-conn
-           insert-stmt
-           (sequence->list row)))
-  table-name)
+                  name-count vec))
+         vec))
+     (define col-name-str (col-names->col-name-str names))
+     (query-exec
+      the-conn
+      (format "CREATE TABLE ~a ~a;" (name->sql table-name) col-name-str))
+     (define insert-stmt
+       (string-append
+        (format "INSERT INTO ~a VALUES " (name->sql table-name))
+        (parens (strs->commasep
+                 (for/list ([i (in-range (length names))]) "?")))
+        ";"))
+     (for ([row dataseq])
+       (apply query-exec
+              the-conn
+              insert-stmt
+              (sequence->list row)))
+     table-name]))
 
 ;; given a maybe-table-name, return the table name and connection to use
 (define (name-and-connection maybe-table-name)
@@ -129,7 +140,8 @@
                (format "SELECT COUNT(*) FROM ~a" (name->sql str))))
 
 ;; construct a view as the join of two tables (or views)
-(define (natural-join t1 t2 #:permanent [maybe-table-name #f])
+(define (natural-join t1 t2 #:permanent [maybe-table-name #f]
+                      #:use-existing [use-existing? #f])
   
   (match-define (list view-name the-conn)
     (name-and-connection maybe-table-name))
@@ -143,14 +155,23 @@
                      (string-append
                       "input and output tables must all be permanent or "
                       "all be temporary"))])
-  (query-exec
-   the-conn
-   (format "CREATE VIEW ~a AS SELECT * FROM ~a NATURAL JOIN ~a;"
-           (name->sql view-name) (name->sql t1) (name->sql t2)))
-  view-name)
+  (cond
+    [(member view-name (list-tables the-conn))
+     (cond [use-existing? view-name]
+           [else
+            (raise-argument-error 'natural-join
+                                  "table that doesn't already exist"
+                                  2 t1 t2 maybe-table-name)])]
+    [else
+     (query-exec
+      the-conn
+      (format "CREATE VIEW ~a AS SELECT * FROM ~a NATURAL JOIN ~a;"
+              (name->sql view-name) (name->sql t1) (name->sql t2)))
+     view-name]))
 
 ;; construct a view as the inner join of two tables (or views)
-(define (inner-join t1 t2 cols #:permanent [maybe-table-name #f])
+(define (inner-join t1 t2 cols #:permanent [maybe-table-name #f]
+                    #:use-existing [use-existing? #f])
   (match-define (list view-name the-conn)
     (name-and-connection maybe-table-name))
   (cond [(and (temp-table? t1) (temp-table? t2) (temp-table? view-name))
@@ -163,14 +184,22 @@
                      (string-append
                       "input and output tables must all be permanent or "
                       "all be temporary"))])
-  (query-exec
-   the-conn
-   (format "CREATE VIEW ~a AS SELECT * FROM ~a INNER JOIN ~a USING ~a;"
-           (name->sql view-name)
-           (name->sql t1)
-           (name->sql t2)
-           (col-names->col-name-str cols)))
-  view-name)
+  (cond
+    [(member view-name (list-tables the-conn))
+     (cond [use-existing? view-name]
+           [else
+            (raise-argument-error 'natural-join
+                                  "table that doesn't already exist"
+                                  2 t1 t2 maybe-table-name)])]
+    [else
+     (query-exec
+      the-conn
+      (format "CREATE VIEW ~a AS SELECT * FROM ~a INNER JOIN ~a USING ~a;"
+              (name->sql view-name)
+              (name->sql t1)
+              (name->sql t2)
+              (col-names->col-name-str cols)))
+     view-name]))
 
 ;; convert a list of symbols to a parenthesized, quoted list
 ;; of strings. Check that they're legal names with no duplicates
@@ -230,23 +259,35 @@
 
 ;; given a table and a list of columns or (count), and optional
 ;; #:where and #:group-by clauses, construct a new table.
-(define (make-table-from-select table cols #:where [where-clauses #f]
+(define (make-table-from-select table cols
+                                #:col-names [col-names #f]
+                                #:where [where-clauses #f]
                                 #:group-by [group-by #f]
-                                #:permanent [maybe-table-name #f]) 
+                                #:permanent [maybe-table-name #f]
+                                #:use-existing [use-existing? #f]) 
   (match-define (list table-name the-conn) (name-and-connection
                                             maybe-table-name))
-  (when (member table-name (list-tables the-conn))
-    (raise-argument-error 'make-table
-                          "table that doesn't already exist"
-                          4 table cols where-clauses group-by
-                          maybe-table-name))
-  (query-exec
-   the-conn
-   (format "CREATE VIEW ~a as ~a ;"
-           (name->sql table-name)
-           (table-select-sql table cols #:where where-clauses
-                             #:group-by group-by)))
-  table-name)
+  (cond
+    [(member table-name (list-tables the-conn))
+     (cond [use-existing? table-name]
+           [else
+            (raise-argument-error 'make-table-from-select
+                                  "table that doesn't already exist"
+                                  2 table cols maybe-table-name)])]
+    [else
+     ;; this optional column names syntax apparently only works
+     ;; with sqlite3 v3.9 and later?
+     (define opt-col-names-str
+       (cond [col-names (col-names->col-name-str col-names)]
+             [else ""]))
+     (query-exec
+      the-conn
+      (format "CREATE VIEW ~a ~a as ~a ;"
+              (name->sql table-name)
+              opt-col-names-str
+              (table-select-sql table cols #:where where-clauses
+                                #:group-by group-by)))
+     table-name]))
 
 ;; given select parameters, construct the SQL query.
 ;; used as an abstraction for both table-select
@@ -515,6 +556,15 @@
                 '(#( 8 87 2)
                   #( 1 88 2)
                   #( 1 87 2)))
+
+  ;; requires newer version of sqlite3?
+  #;((define t4a (make-table-from-select t1 '(a b zagbar)
+                                      #:col-names '(x y z)
+                                      #:where '((= quux "q"))))
+  (check-equal? (table-select t4a '(x y z))
+                '(#( 8 87 2)
+                  #( 1 88 2)
+                  #( 1 87 2))))
   
   (check-equal? (find-table t3) t3)
   (check-exn #px"table not found"
@@ -522,7 +572,7 @@
 
 
   (check-equal? (name-and-connection #f)
-                (list "temp_16" conn))  
+                (list "temp_17" conn))  
 )
 
 (printf "existing tables in permanent storage: ~v\n"
