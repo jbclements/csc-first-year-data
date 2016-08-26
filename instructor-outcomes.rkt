@@ -118,12 +118,54 @@
               #:permanent "pre_5_123_with_ap"
               #:use-existing #t))
 
+(let ()
+  (define majors-by-instructor
+    (table-select
+     (make-table-from-select (inner-join pre-2158-123-instructors-with-ap
+                                         grade-facts-table
+                                         '(student)
+                                         #:permanent "ijtemp5c"
+                                         #:use-existing #t)
+                             '(instructor student)
+                             #:group-by '(student)
+                             #:permanent "ijtemp4c"
+                             #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
+
+  (with-output-to-file "/tmp/tot-ap-students.txt"
+    (λ ()
+      (for ([v majors-by-instructor])
+        (apply printf "~v, ~v\n" (vector->list v))))
+    #:exists 'truncate))
+
 (define pre-2158-123-instructors-without-ap
   (inner-join pre-2158-123-instructors
               no-has-ap
               '(student)
               #:permanent "pre_5_123_without_ap"
               #:use-existing #t))
+
+(let ()
+  (define majors-by-instructor
+    (table-select
+     (make-table-from-select (inner-join pre-2158-123-instructors-without-ap
+                                         grade-facts-table
+                                         '(student)
+                                         #:permanent "ijtemp5b"
+                                         #:use-existing #t)
+                             '(instructor student)
+                             #:group-by '(student)
+                             #:permanent "ijtemp4b"
+                             #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
+
+  (with-output-to-file "/tmp/tot-non-ap-students.txt"
+    (λ ()
+      (for ([v majors-by-instructor])
+        (apply printf "~v, ~v\n" (vector->list v))))
+    #:exists 'truncate))
 
 (printf "# of students in population that have an ap score: ~v\n"
         (table-size pre-2158-123-instructors-with-ap))
