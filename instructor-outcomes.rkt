@@ -70,11 +70,26 @@
               #:permanent "first_time_101"
               #:use-existing #t))
 
+(define first-time-102s
+  (make-table '(student qtr)
+              (table-select grade-facts-table '(student (min qtr))
+                            #:where '((= class "CPE 102"))
+                            #:group-by '(student))
+              #:permanent "first_time_102"
+              #:use-existing #t))
+
 (define first-time-101-grades
   (inner-join first-time-101s
               grade-facts-table
               '(student qtr)
               #:permanent "ft_101_grades"
+              #:use-existing #t))
+
+(define first-time-102-grades
+  (inner-join first-time-102s
+              grade-facts-table
+              '(student qtr)
+              #:permanent "ft_102_grades"
               #:use-existing #t))
 
 (define has-ap
@@ -104,8 +119,21 @@
    #:permanent "post_2138_123_instructors57c0b456"
    #:use-existing #t))
 
+(define pre-2158-123-instructors
+  (make-table-from-select
+   major-student-123-instructors '(student instructor)
+   #:where '((< 123_qtr 2158)
+             (< 2108 123_qtr))
+   #:permanent "pre_2158_123_instructors57c0b456"
+   #:use-existing #t))
+
 (printf "count by instructor of students in 123 in the major in 2014 and 2015")
 (table-select post-2138-123-instructors
+              '(instructor (count))
+              #:group-by '(instructor))
+
+(printf "count by instructor of students in 123 in the major in 2011-2014")
+(table-select pre-2158-123-instructors
               '(instructor (count))
               #:group-by '(instructor))
 
@@ -127,15 +155,43 @@
      '(instructor (count))
      #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/tot-students.txt"
+  (with-output-to-file "/tmp/tot-students-2148+.txt"
+    (λ ()
+      (for ([v majors-by-instructor])
+        (apply printf "~v, ~v\n" (vector->list v))))
+    #:exists 'truncate))
+
+(let ()
+  (define majors-by-instructor
+    (table-select
+     (make-table-from-select (inner-join pre-2158-123-instructors
+                                         grade-facts-table
+                                         '(student)
+                                         #:permanent "ijtemp557c0pre2158"
+                                         #:use-existing #t)
+                             '(instructor student)
+                             #:group-by '(student)
+                             #:permanent "ijtemp4pre2158"
+                             #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
+
+  (with-output-to-file "/tmp/tot-students-2148-.txt"
     (λ ()
       (for ([v majors-by-instructor])
         (apply printf "~v, ~v\n" (vector->list v))))
     #:exists 'truncate))
 
 
-(define 123-instructors-with-ap
+(define post-2138-123-instructors-with-ap
   (inner-join post-2138-123-instructors 
+              has-ap
+              '(student)
+              #:permanent "post_3_123_with_ap"
+              #:use-existing #t))
+
+(define pre-2158-123-instructors-with-ap
+  (inner-join pre-2158-123-instructors 
               has-ap
               '(student)
               #:permanent "pre_5_123_with_ap"
@@ -144,132 +200,165 @@
 (let ()
   (define majors-by-instructor
     (table-select
-     (make-table-from-select (inner-join 123-instructors-with-ap
+     (make-table-from-select (inner-join post-2138-123-instructors-with-ap
                                          grade-facts-table
                                          '(student)
-                                         #:permanent "ijtemp5c"
+                                         #:permanent "57c61d96"
                                          #:use-existing #t)
                              '(instructor student)
                              #:group-by '(student)
-                             #:permanent "ijtemp4c"
+                             #:permanent "57c61d97"
                              #:use-existing #t)
      '(instructor (count))
      #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/tot-ap-students.txt"
+  (with-output-to-file "/tmp/post-2138-tot-ap-students.txt"
     (λ ()
       (for ([v majors-by-instructor])
-        (apply printf "~v, ~v\n" (vector->list v))))
+        (apply printf "~v,~v\n" (vector->list v))))
     #:exists 'truncate))
 
-(define 123-instructors-without-ap
+(let ()
+  (define majors-by-instructor
+    (table-select
+     (make-table-from-select (inner-join pre-2158-123-instructors-with-ap
+                                         grade-facts-table
+                                         '(student)
+                                         #:permanent "57c61d96"
+                                         #:use-existing #t)
+                             '(instructor student)
+                             #:group-by '(student)
+                             #:permanent "57c61d97"
+                             #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
+
+  (with-output-to-file "/tmp/pre-2158-tot-ap-students.txt"
+    (λ ()
+      (for ([v majors-by-instructor])
+        (apply printf "~v,~v\n" (vector->list v))))
+    #:exists 'truncate))
+
+(define post-2138-123-instructors-without-ap
   (inner-join post-2138-123-instructors 
               no-has-ap
               '(student)
-              #:permanent "pre_5_123_without_ap"
+              #:permanent "57c61d98"
+              #:use-existing #t))
+
+(define pre-2158-123-instructors-without-ap
+  (inner-join pre-2158-123-instructors 
+              no-has-ap
+              '(student)
+              #:permanent "57c61d99"
               #:use-existing #t))
 
 (let ()
   (define majors-by-instructor
     (table-select
-     (make-table-from-select (inner-join 123-instructors-without-ap
+     (make-table-from-select (inner-join post-2138-123-instructors-without-ap
                                          grade-facts-table
                                          '(student)
-                                         #:permanent "ijtemp5b"
+                                         #:permanent "57c61d9a"
                                          #:use-existing #t)
                              '(instructor student)
                              #:group-by '(student)
-                             #:permanent "ijtemp4b"
+                             #:permanent "57c61d9b"
                              #:use-existing #t)
      '(instructor (count))
      #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/tot-non-ap-students.txt"
+  (with-output-to-file "/tmp/post-2138-tot-non-ap-students.txt"
     (λ ()
       (for ([v majors-by-instructor])
-        (apply printf "~v, ~v\n" (vector->list v))))
-    #:exists 'truncate))
-
-(printf "# of students in population that have an ap score: ~v\n"
-        (table-size 123-instructors-with-ap))
-
-(define instructor-grades-101
-  (natural-join first-time-101-grades
-                post-2138-123-instructors 
-                #:permanent "instructor_grades_101"
-                #:use-existing #t))
-
-(define instructor-grades-101-with-ap
-  (natural-join first-time-101-grades
-                123-instructors-with-ap
-                #:permanent "instructor_grades_101_with_ap"
-                #:use-existing #t))
-
-(define instructor-grades-101-without-ap
-  (natural-join first-time-101-grades
-                123-instructors-without-ap
-                #:permanent "instructor_grades_101_without_ap"
-                #:use-existing #t))
-
-
-
-
-
-(let ()
-  (define results
-    (table-select instructor-grades-101 '(instructor grade (count))
-                  #:group-by '(instructor grade)))
-
-  (sequence-length results)
-  #;(take (sequence->list results) 10)
-
-  (with-output-to-file "/tmp/gg1.txt"
-    (λ ()
-      (for ([v results])
-        (apply printf "~v, ~v, ~v\n" (vector->list v))))
+        (apply printf "~v,~v\n" (vector->list v))))
     #:exists 'truncate))
 
 (let ()
-  (define results
-    (table-select instructor-grades-101-with-ap '(instructor grade (count))
-                  #:group-by '(instructor grade)))
-  
-  (sequence-length results)
-  #;(take (sequence->list results) 10)
+  (define majors-by-instructor
+    (table-select
+     (make-table-from-select (inner-join pre-2158-123-instructors-without-ap
+                                         grade-facts-table
+                                         '(student)
+                                         #:permanent "57c61d9c"
+                                         #:use-existing #t)
+                             '(instructor student)
+                             #:group-by '(student)
+                             #:permanent "57c61d9d"
+                             #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/gg2.txt"
+  (with-output-to-file "/tmp/pre-2158-tot-non-ap-students.txt"
     (λ ()
-      (for ([v results])
-        (apply printf "~v, ~v, ~v\n" (vector->list v))))
+      (for ([v majors-by-instructor])
+        (apply printf "~v,~v\n" (vector->list v))))
+    #:exists 'truncate))
+
+(printf "# of students in 2138+ population that have an ap score: ~v\n"
+        (table-size post-2138-123-instructors-with-ap))
+
+(printf "# of students in 2158- population that have an ap score: ~v\n"
+        (table-size pre-2158-123-instructors-with-ap))
+
+(define pre-2158-instructor-grades-102
+  (natural-join first-time-102-grades
+                pre-2158-123-instructors 
+                #:permanent "instructor_grades_102_p5"
+                #:use-existing #t))
+
+(define pre-2158-instructor-grades-102-with-ap
+  (natural-join first-time-102-grades
+                pre-2158-123-instructors-with-ap
+                #:permanent "instructor_grades_102_with_ap_p5"
+                #:use-existing #t))
+
+(define pre-2158-instructor-grades-102-without-ap
+  (natural-join first-time-102-grades
+                pre-2158-123-instructors-without-ap
+                #:permanent "instructor_grades_102_without_ap_p5"
+                #:use-existing #t))
+
+;; write a list of vectors to a csv file
+(define (csv-write vecs file)
+  (with-output-to-file file
+    (λ ()
+      (for ([v vecs])
+        (displayln
+         (apply string-append
+                (add-between (map ~v (vector->list v)) ",")))))
     #:exists 'truncate))
 
 (let ()
   (define results
-    (table-select instructor-grades-101-without-ap '(instructor grade (count))
+    (table-select pre-2158-instructor-grades-102
+                  '(instructor grade (count))
                   #:group-by '(instructor grade)))
+  (csv-write results "/tmp/all-students-102-stats-2158-.txt"))
 
-  (sequence-length results)
-  #;(take (sequence->list results) 10)
+(let ()
+  (define results
+    (table-select pre-2158-instructor-grades-102-with-ap
+                  '(instructor grade (count))
+                  #:group-by '(instructor grade)))
+  (csv-write results "/tmp/ap-students-102-stats-2158-.txt"))
 
-  (with-output-to-file "/tmp/gg3.txt"
-    (λ ()
-      (for ([v results])
-        (apply printf "~v, ~v, ~v\n" (vector->list v))))
-    #:exists 'truncate))
+(let ()
+  (define results
+    (table-select pre-2158-instructor-grades-102-without-ap
+                  '(instructor grade (count))
+                  #:group-by '(instructor grade)))
+  (csv-write results "/tmp/non-ap-students-102-stats-2158-.txt"))
 
-(table-select grade-facts-table '(class (count))
-              #:where '((= qtr 2162))
-              #:group-by '(class))
-
-
-(define students-with-123-grades
+(define pre-2158-students-with-123-grades
   (table-select grade-facts-table '(student)
                 #:where '((= class "CPE 123")
-                          (< 2138 qtr))))
+                          (< qtr 2158))))
 
-(remove* (table-select post-2138-123-instructors  '(student)
+(printf "students with 123 grades that don't have an associated instructor:\n")
+(remove* (table-select pre-2158-123-instructors  '(student)
                        #:group-by '(student))
-         students-with-123-grades)
+         pre-2158-students-with-123-grades)
 
 ;; cohort adjustment: some students skipped 101 but took 102 or 103
 (let ()
@@ -283,36 +372,43 @@
   (list->set (table-select grade-facts-table '(student)
                            #:where '((= class "CPE 102")))))
 
-(define got-a-grade-in-102-or-103
-  (set-union got-a-grade-in-103 got-a-grade-in-102))
-(define got-a-grade-in-102-or-103-but-not-101
-  (set-subtract got-a-grade-in-102-or-103 got-a-grade-in-101))
-
-  (define instructors-of-skipped-101s
-    (inner-join post-2138-123-instructors 
+  (define got-a-grade-in-102-or-103
+    (set-union got-a-grade-in-103 got-a-grade-in-102))
+  (define got-a-grade-in-102-or-103-but-not-101
+    (set-subtract got-a-grade-in-102-or-103 got-a-grade-in-101))
+  (define got-a-grade-in-103-but-not-102
+    (set-subtract got-a-grade-in-103 got-a-grade-in-102))
+  
+  (define pre-2158-instructors-of-skipped-101s
+    (inner-join pre-2158-123-instructors 
                 (make-table '(student) got-a-grade-in-102-or-103-but-not-101
                             #:permanent "57c0b458aa"
                             #:use-existing #t)
                 '(student)
                 #:permanent "57c0b70b"
                 #:use-existing #t))
+
+  (define pre-2158-instructors-of-skipped-102s
+    (inner-join pre-2158-123-instructors 
+                (make-table '(student)
+                            got-a-grade-in-103-but-not-102
+                            #:permanent "57c6229a"
+                            #:use-existing #t)
+                '(student)
+                #:permanent "57c6229b"
+                #:use-existing #t))
   
-  (printf "# of students that took 102 or 103 but not 101, by 123 instructor")
-  (define skipped-101
-    (table-select instructors-of-skipped-101s
+  (printf "# of students that took 103 but not 102, by 123 instructor")
+  (define pre-2158-skipped-102
+    (table-select pre-2158-instructors-of-skipped-102s
                   '(instructor (count))
                   #:group-by '(instructor)))
-  (display skipped-101)
+  (display pre-2158-skipped-102)
   (newline)
-  (call-with-output-file "/tmp/skipped-101.txt"
-    (λ (port)
-      (map (λ (r) (apply fprintf port "~v,~v\n"
-                         (vector->list r)))
-           skipped-101))
-    #:exists 'truncate)
+  (csv-write pre-2158-skipped-102 "/tmp/pre-2158-skipped-102.txt")
 
-  (define skipped-101-with-ap
-    (table-select (inner-join instructors-of-skipped-101s
+  (define pre-2158-skipped-102-with-ap
+    (table-select (inner-join pre-2158-instructors-of-skipped-102s
                               has-ap
                               '(student)
                               #:permanent "57c0b991"
@@ -320,32 +416,24 @@
                   '(instructor (count))
                   #:group-by '(instructor)))
 
-  (define skipped-101-without-ap
-    (table-select (inner-join instructors-of-skipped-101s
+  (define pre-2158-skipped-102-without-ap
+    (table-select (inner-join pre-2158-instructors-of-skipped-102s
                               no-has-ap
                               '(student)
-                              #:permanent "57c0b992"
+                              #:permanent "57c6236c"
                               #:use-existing #t)
                   '(instructor (count))
                   #:group-by '(instructor)))
 
-  (display skipped-101-with-ap)
-  (newline)
-  (call-with-output-file "/tmp/skipped-101-ap.txt"
-    (λ (port)
-      (map (λ (r) (apply fprintf port "~v,~v\n"
-                         (vector->list r)))
-           skipped-101-with-ap))
-    #:exists 'truncate)
+  (displayln pre-2158-skipped-102-with-ap)
+  (csv-write pre-2158-skipped-102-with-ap
+             "/tmp/pre-2158-skipped-102-ap.txt")
 
-  (display skipped-101-without-ap)
-  (newline)
-  (call-with-output-file "/tmp/skipped-101-no-ap.txt"
-    (λ (port)
-      (map (λ (r) (apply fprintf port "~v,~v\n"
-                         (vector->list r)))
-           skipped-101-without-ap))
-    #:exists 'truncate))
+  (displayln pre-2158-skipped-102-without-ap)
+  (csv-write pre-2158-skipped-102-without-ap
+             "/tmp/pre-2158-skipped-102-no-ap.txt")
+
+)
 
 #;(set-subtract
  (set-intersect

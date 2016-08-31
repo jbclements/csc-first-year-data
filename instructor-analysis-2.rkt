@@ -3,7 +3,7 @@
 (require csv-reading)
 
 (define all-students
-  (call-with-input-file "/tmp/gg1.txt"
+  (call-with-input-file "/tmp/all-students-101-stats-2148+.txt"
     csv->list))
 
 (define student-nums
@@ -21,7 +21,7 @@ skippers
 (define (curriculum-mapping instructor)
   (match instructor
     ("Bellardo, John Michael" 'mobile)
-    ("Clements, John B." 'htdp)
+    ("Clements, John B." 'music)
     ("Haungs, Michael L." 'gaming)
     ("Janzen, David S." 'mobile)
     ("Peterson, Zachary N.J." 'security)
@@ -29,6 +29,15 @@ skippers
     ("Smith, Hugh M." 'robotics)
     ("Wood, Zoe J." 'art)
     ("Workman, Julie A." 'art)))
+
+(define (curriculum-name c)
+  (match c
+    ['mobile "Mobile"]
+    ['music "Music"]
+    ['security "Security"]
+    ['robotics "Robotics"]
+    ['art "Art"]
+    ['gaming "Gaming"]))
 
 (define all-curricula
   (remove-duplicates (map curriculum-mapping (map first all-students))))
@@ -62,7 +71,7 @@ skippers
   (map
    (λ (r) (list (curriculum-mapping (first r))
                 ;; took out grade->gpa mapping here:
-                (strip-quotes (second r))
+                (second r)
                 (string->number (string-trim (third r)))))
    all-students))
 
@@ -133,9 +142,9 @@ skippers
     (for ([curriculum (in-list all-curricula)])
       (for ([grade (in-list all-gpa-levels)])
         (for ([i (in-range (curriculum-grade-count curriculum grade))])
-          (fprintf port "~a,~a\n" curriculum
-                   grade
-                   #;(cond [(member grade passing-grades) "PASS"]
+          (fprintf port "~a,~a\n" (curriculum-name curriculum)
+                   #;grade
+                   (cond [(member grade passing-grades) "PASS"]
                      [else "FAIL"])))))))
 
 (define curriculum-samples
