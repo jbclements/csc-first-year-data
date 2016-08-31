@@ -353,7 +353,8 @@
 (define pre-2158-students-with-123-grades
   (table-select grade-facts-table '(student)
                 #:where '((= class "CPE 123")
-                          (< qtr 2158))))
+                          (< qtr 2158)
+                          (< 2108 qtr))))
 
 (printf "students with 123 grades that don't have an associated instructor:\n")
 (remove* (table-select pre-2158-123-instructors  '(student)
