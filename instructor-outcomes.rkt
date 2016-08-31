@@ -127,6 +127,13 @@
    #:permanent "pre_2158_123_instructors57c0b456"
    #:use-existing #t))
 
+(define post-2108-123-instructors
+  (make-table-from-select
+   major-student-123-instructors '(student instructor)
+   #:where '((< 2108 123_qtr))
+   #:permanent "post_2108_123_instructors57c0b456"
+   #:use-existing #t))
+
 (printf "count by instructor of students in 123 in the major in 2014 and 2015")
 (table-select post-2138-123-instructors
               '(instructor (count))
@@ -137,50 +144,48 @@
               '(instructor (count))
               #:group-by '(instructor))
 
+(printf "count by instructor of students in 123 in the major in 2011-2015")
+(table-select post-2108-123-instructors
+              '(instructor (count))
+              #:group-by '(instructor))
+
 ;; in order to count the students that were majors
 ;; but never made it to 101, we need a count of the students
-;; 
-(let ()
+;;
+
+(define (write-totals tempname source-table file)
   (define majors-by-instructor
     (table-select
-     (make-table-from-select (inner-join post-2138-123-instructors
-                                         grade-facts-table
-                                         '(student)
-                                         #:permanent "ijtemp557c0"
-                                         #:use-existing #t)
-                             '(instructor student)
-                             #:group-by '(student)
-                             #:permanent "ijtemp4"
-                             #:use-existing #t)
+     (make-table-from-select
+      (inner-join source-table
+                  grade-facts-table
+                  '(student)
+                  #:permanent (string-append tempname "a")
+                  #:use-existing #t)
+      '(instructor student)
+      #:group-by '(student)
+      #:permanent (string-append tempname "b")
+      #:use-existing #t)
      '(instructor (count))
      #:group-by '(instructor)))
+  (csv-write majors-by-instructor file))
 
-  (with-output-to-file "/tmp/tot-students-2148+.txt"
+;; write a list of vectors to a csv file
+(define (csv-write vecs file)
+  (with-output-to-file file
     (λ ()
-      (for ([v majors-by-instructor])
-        (apply printf "~v, ~v\n" (vector->list v))))
+      (for ([v vecs])
+        (displayln
+         (apply string-append
+                (add-between (map ~v (vector->list v)) ",")))))
     #:exists 'truncate))
 
-(let ()
-  (define majors-by-instructor
-    (table-select
-     (make-table-from-select (inner-join pre-2158-123-instructors
-                                         grade-facts-table
-                                         '(student)
-                                         #:permanent "ijtemp557c0pre2158"
-                                         #:use-existing #t)
-                             '(instructor student)
-                             #:group-by '(student)
-                             #:permanent "ijtemp4pre2158"
-                             #:use-existing #t)
-     '(instructor (count))
-     #:group-by '(instructor)))
-
-  (with-output-to-file "/tmp/tot-students-2148-.txt"
-    (λ ()
-      (for ([v majors-by-instructor])
-        (apply printf "~v, ~v\n" (vector->list v))))
-    #:exists 'truncate))
+(write-totals "57c67a60" post-2138-123-instructors
+              "/tmp/tot-students-2148+.txt")
+(write-totals "57c67a61" pre-2158-123-instructors
+              "/tmp/tot-students-2148-.txt")
+(write-totals "57c67a62" post-2108-123-instructors
+              "/tmp/tot-students-2118+.txt")
 
 
 (define post-2138-123-instructors-with-ap
@@ -197,47 +202,21 @@
               #:permanent "pre_5_123_with_ap"
               #:use-existing #t))
 
-(let ()
-  (define majors-by-instructor
-    (table-select
-     (make-table-from-select (inner-join post-2138-123-instructors-with-ap
-                                         grade-facts-table
-                                         '(student)
-                                         #:permanent "57c61d96"
-                                         #:use-existing #t)
-                             '(instructor student)
-                             #:group-by '(student)
-                             #:permanent "57c61d97"
-                             #:use-existing #t)
-     '(instructor (count))
-     #:group-by '(instructor)))
+(define post-2108-123-instructors-with-ap
+  (inner-join post-2108-123-instructors 
+              has-ap
+              '(student)
+              #:permanent "post_0_123_with_ap"
+              #:use-existing #t))
 
-  (with-output-to-file "/tmp/tot-ap-students-2148+.txt"
-    (λ ()
-      (for ([v majors-by-instructor])
-        (apply printf "~v,~v\n" (vector->list v))))
-    #:exists 'truncate))
+(write-totals "57c66792" post-2138-123-instructors-with-ap
+              "/tmp/tot-ap-students-2148+.txt")
+(write-totals "57c66793" pre-2158-123-instructors-with-ap
+              "/tmp/tot-ap-students-2148-.txt")
+(write-totals "57c66794" post-2108-123-instructors-with-ap
+              "/tmp/tot-ap-students-2118+.txt")
 
-(let ()
-  (define majors-by-instructor
-    (table-select
-     (make-table-from-select (inner-join pre-2158-123-instructors-with-ap
-                                         grade-facts-table
-                                         '(student)
-                                         #:permanent "57c665ed"
-                                         #:use-existing #t)
-                             '(instructor student)
-                             #:group-by '(student)
-                             #:permanent "57c665ee"
-                             #:use-existing #t)
-     '(instructor (count))
-     #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/tot-ap-students-2148-.txt"
-    (λ ()
-      (for ([v majors-by-instructor])
-        (apply printf "~v,~v\n" (vector->list v))))
-    #:exists 'truncate))
 
 (define post-2138-123-instructors-without-ap
   (inner-join post-2138-123-instructors 
@@ -253,53 +232,43 @@
               #:permanent "57c61d99"
               #:use-existing #t))
 
-(let ()
-  (define majors-by-instructor
-    (table-select
-     (make-table-from-select (inner-join post-2138-123-instructors-without-ap
-                                         grade-facts-table
-                                         '(student)
-                                         #:permanent "57c61d9a"
-                                         #:use-existing #t)
-                             '(instructor student)
-                             #:group-by '(student)
-                             #:permanent "57c61d9b"
-                             #:use-existing #t)
-     '(instructor (count))
-     #:group-by '(instructor)))
+(define post-2108-123-instructors-without-ap
+  (inner-join post-2108-123-instructors 
+              no-has-ap
+              '(student)
+              #:permanent "57c66795"
+              #:use-existing #t))
 
-  (with-output-to-file "/tmp/tot-non-ap-students-2148+.txt"
-    (λ ()
-      (for ([v majors-by-instructor])
-        (apply printf "~v,~v\n" (vector->list v))))
-    #:exists 'truncate))
-
-(let ()
-  (define majors-by-instructor
-    (table-select
-     (make-table-from-select (inner-join pre-2158-123-instructors-without-ap
-                                         grade-facts-table
-                                         '(student)
-                                         #:permanent "57c61d9c"
-                                         #:use-existing #t)
-                             '(instructor student)
-                             #:group-by '(student)
-                             #:permanent "57c61d9d"
-                             #:use-existing #t)
-     '(instructor (count))
-     #:group-by '(instructor)))
-
-  (with-output-to-file "/tmp/tot-non-ap-students-2148-.txt"
-    (λ ()
-      (for ([v majors-by-instructor])
-        (apply printf "~v,~v\n" (vector->list v))))
-    #:exists 'truncate))
+(write-totals "57c67a63" post-2138-123-instructors-without-ap
+              "/tmp/tot-non-ap-students-2148+.txt")
+(write-totals "57c67a64" pre-2158-123-instructors-without-ap
+              "/tmp/tot-non-ap-students-2148-.txt")
+(write-totals "57c67a65" post-2108-123-instructors-without-ap
+              "/tmp/tot-non-ap-students-2118+.txt")
 
 (printf "# of students in 2138+ population that have an ap score: ~v\n"
         (table-size post-2138-123-instructors-with-ap))
 
 (printf "# of students in 2158- population that have an ap score: ~v\n"
         (table-size pre-2158-123-instructors-with-ap))
+
+(define post-2108-instructor-grades-101
+  (natural-join first-time-101-grades
+                post-2108-123-instructors 
+                #:permanent "instructor_grades_101_p0"
+                #:use-existing #t))
+
+(define post-2108-instructor-grades-101-with-ap
+  (natural-join first-time-101-grades
+                post-2108-123-instructors-with-ap
+                #:permanent "instructor_grades_101_with_ap_p0"
+                #:use-existing #t))
+
+(define post-2108-instructor-grades-101-without-ap
+  (natural-join first-time-101-grades
+                post-2108-123-instructors-without-ap
+                #:permanent "instructor_grades_101_without_ap_p0"
+                #:use-existing #t))
 
 (define pre-2158-instructor-grades-102
   (natural-join first-time-102-grades
@@ -319,59 +288,48 @@
                 #:permanent "instructor_grades_102_without_ap_p5"
                 #:use-existing #t))
 
-;; write a list of vectors to a csv file
-(define (csv-write vecs file)
-  (with-output-to-file file
-    (λ ()
-      (for ([v vecs])
-        (displayln
-         (apply string-append
-                (add-between (map ~v (vector->list v)) ",")))))
-    #:exists 'truncate))
-
-(let ()
+(define (write-stats table file)
   (define results
-    (table-select pre-2158-instructor-grades-102
+    (table-select table
                   '(instructor grade (count))
                   #:group-by '(instructor grade)))
-  (csv-write results "/tmp/all-students-102-stats-2148-.txt"))
+  (csv-write results file))
 
-(let ()
-  (define results
-    (table-select pre-2158-instructor-grades-102-with-ap
-                  '(instructor grade (count))
-                  #:group-by '(instructor grade)))
-  (csv-write results "/tmp/ap-students-102-stats-2148-.txt"))
+(write-stats post-2108-instructor-grades-101
+             "/tmp/all-students-101-stats-2118+.txt")
+(write-stats post-2108-instructor-grades-101-with-ap
+             "/tmp/ap-students-101-stats-2118+.txt")
+(write-stats post-2108-instructor-grades-101-without-ap
+             "/tmp/non-ap-students-101-stats-2118+.txt")
 
-(let ()
-  (define results
-    (table-select pre-2158-instructor-grades-102-without-ap
-                  '(instructor grade (count))
-                  #:group-by '(instructor grade)))
-  (csv-write results "/tmp/non-ap-students-102-stats-2148-.txt"))
+(write-stats pre-2158-instructor-grades-102
+             "/tmp/all-students-102-stats-2148-.txt")
+(write-stats pre-2158-instructor-grades-102-with-ap
+             "/tmp/ap-students-102-stats-2148-.txt")
+(write-stats pre-2158-instructor-grades-102-without-ap
+             "/tmp/non-ap-students-102-stats-2148-.txt")
 
-(define pre-2158-students-with-123-grades
+(define post-2108-students-with-123-grades
   (table-select grade-facts-table '(student)
                 #:where '((= class "CPE 123")
-                          (< qtr 2158)
                           (< 2108 qtr))))
 
 (printf "students with 123 grades that don't have an associated instructor:\n")
-(remove* (table-select pre-2158-123-instructors  '(student)
+(remove* (table-select post-2108-123-instructors  '(student)
                        #:group-by '(student))
-         pre-2158-students-with-123-grades)
+         post-2108-students-with-123-grades)
 
 ;; cohort adjustment: some students skipped 101 but took 102 or 103
-(let ()
+(define (skippers source-table temptable timestr)
   (define got-a-grade-in-103
-  (list->set (table-select grade-facts-table '(student)
-                           #:where '((= class "CPE 103")))))
-(define got-a-grade-in-102
-  (list->set (table-select grade-facts-table '(student)
-                           #:where '((= class "CPE 102")))))
-(define got-a-grade-in-101
-  (list->set (table-select grade-facts-table '(student)
-                           #:where '((= class "CPE 102")))))
+    (list->set (table-select grade-facts-table '(student)
+                             #:where '((= class "CPE 103")))))
+  (define got-a-grade-in-102
+    (list->set (table-select grade-facts-table '(student)
+                             #:where '((= class "CPE 102")))))
+  (define got-a-grade-in-101
+    (list->set (table-select grade-facts-table '(student)
+                             #:where '((= class "CPE 102")))))
 
   (define got-a-grade-in-102-or-103
     (set-union got-a-grade-in-103 got-a-grade-in-102))
@@ -380,61 +338,66 @@
   (define got-a-grade-in-103-but-not-102
     (set-subtract got-a-grade-in-103 got-a-grade-in-102))
   
-  (define pre-2158-instructors-of-skipped-101s
-    (inner-join pre-2158-123-instructors 
-                (make-table '(student) got-a-grade-in-102-or-103-but-not-101
-                            #:permanent "57c0b458aa"
+  (define instructors-of-skipped-101s
+    (inner-join source-table 
+                (make-table '(student)
+                            got-a-grade-in-102-or-103-but-not-101
+                            #:permanent (string-append temptable "a")
                             #:use-existing #t)
                 '(student)
-                #:permanent "57c0b70b"
+                #:permanent (string-append temptable "b")
                 #:use-existing #t))
 
-  (define pre-2158-instructors-of-skipped-102s
-    (inner-join pre-2158-123-instructors 
+  (define instructors-of-skipped-102s
+    (inner-join source-table 
                 (make-table '(student)
                             got-a-grade-in-103-but-not-102
-                            #:permanent "57c6229a"
+                            #:permanent (string-append temptable "c")
                             #:use-existing #t)
                 '(student)
-                #:permanent "57c6229b"
+                #:permanent (string-append temptable "d")
                 #:use-existing #t))
   
-  (printf "# of students that took 103 but not 102, by 123 instructor")
-  (define pre-2158-skipped-102
-    (table-select pre-2158-instructors-of-skipped-102s
+  (printf "# of students that skipped 101, by 123 instructor")
+  (define skipped-101
+    (table-select instructors-of-skipped-101s
                   '(instructor (count))
                   #:group-by '(instructor)))
-  (display pre-2158-skipped-102)
+  (display skipped-101)
   (newline)
-  (csv-write pre-2158-skipped-102 "/tmp/skipped-102-2148-.txt")
+  (csv-write skipped-101 (~a "/tmp/skipped-101-"timestr".txt"))
 
-  (define pre-2158-skipped-102-with-ap
-    (table-select (inner-join pre-2158-instructors-of-skipped-102s
-                              has-ap
-                              '(student)
-                              #:permanent "57c0b991"
-                              #:use-existing #t)
-                  '(instructor (count))
-                  #:group-by '(instructor)))
+  (define skipped-101-with-ap
+    (table-select
+     (inner-join instructors-of-skipped-101s
+                 has-ap
+                 '(student)
+                 #:permanent (string-append temptable "e")
+                 #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
 
-  (define pre-2158-skipped-102-without-ap
-    (table-select (inner-join pre-2158-instructors-of-skipped-102s
+  (define skipped-101-without-ap
+    (table-select (inner-join instructors-of-skipped-101s
                               no-has-ap
                               '(student)
-                              #:permanent "57c6236c"
+                              #:permanent (string-append temptable "f")
                               #:use-existing #t)
                   '(instructor (count))
                   #:group-by '(instructor)))
 
-  (displayln pre-2158-skipped-102-with-ap)
-  (csv-write pre-2158-skipped-102-with-ap
-             "/tmp/skipped-102-ap-2148-.txt")
+  (displayln skipped-101-with-ap)
+  (csv-write skipped-101-with-ap
+             (~a "/tmp/skipped-102-ap-" timestr ".txt"))
 
-  (displayln pre-2158-skipped-102-without-ap)
-  (csv-write pre-2158-skipped-102-without-ap
-             "/tmp/skipped-102-non-ap-2148-.txt")
+  (displayln skipped-101-without-ap)
+  (csv-write skipped-101-without-ap
+             (~a "/tmp/skipped-101-non-ap-" timestr ".txt"))
 
 )
+
+(skippers post-2108-123-instructors "57c67a66" "2118+")
+(skippers pre-2158-123-instructors "57c67a67" "2158-")
 
 #;(set-subtract
  (set-intersect
