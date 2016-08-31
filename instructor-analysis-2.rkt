@@ -3,15 +3,15 @@
 (require csv-reading)
 
 (define all-students
-  (call-with-input-file "/tmp/all-students-101-stats-2148+.txt"
+  (call-with-input-file "/tmp/ap-students-102-stats-2148-.txt"
     csv->list))
 
 (define student-nums
-  (call-with-input-file "/tmp/tot-students.txt"
+  (call-with-input-file "/tmp/tot-ap-students-2148-.txt"
     csv->list))
 
 (define skippers
-  (call-with-input-file "/tmp/skipped-101.txt"
+  (call-with-input-file "/tmp/skipped-102-ap-2148-.txt"
     csv->list))
 
 student-nums
@@ -58,6 +58,7 @@ skippers
 (check-equal? (grade->gpa "D+") 1.3)
 (check-equal? (grade->gpa "B-") 2.7)
 (check-equal? (grade->gpa "WU") 0.0)
+(check-equal? (grade->gpa "GU") 0.0)
 
 (define passing-grades
   '("A" "A-" "B+" "B" "B-" "C+" "C" "C-"))
@@ -117,7 +118,7 @@ skippers
     (list curriculum
           (- (first (dict-ref curriculum-majors curriculum))
              (first (dict-ref curriculum-totals-from-101-grades curriculum))
-             (first (dict-ref curriculum-skippers curriculum (list 0)))))))
+             #;(first (dict-ref curriculum-skippers curriculum (list 0)))))))
 
 (define summed-grades-by-curriculum-and-grade
   (map (λ (r) (list (take r 2) (third r)))
@@ -148,24 +149,27 @@ skippers
                      [else "FAIL"])))))))
 
 (define curriculum-samples
-  (for/list ([curriculum (in-list all-curricula)])
+  (for/list ([curriculum (in-list
+                          all-curricula)])
     (list curriculum
           (apply
            append
            (for/list ([grade (in-list all-gpa-levels)])
              (for/list ([i (in-range (curriculum-grade-count curriculum grade))])
-               grade))))))
+               (grade->gpa grade)))))))
 
-#;(require plot)
-#;(plot-file
- (for/list ([i (in-naturals)][pr (in-list curriculum-samples)])
+(require plot)
+(plot-file
+ (for/list ([i (in-naturals)]
+            [pr (in-list curriculum-samples)]
+            [style (in-list (list 0 1 2 3 5 4))])
    (density (second pr)
             #:label (symbol->string (first pr))
-            #:style i
+            #:style style
             #:color i))
- #:x-label "gpa of students in 101"
- #:y-label "density of students with this gpa"
- "/tmp/101-grades.pdf")
+ #:x-label "GPA of AP student in 102"
+ #:y-label "density of AP students with this GPA"
+ "/tmp/ap-102-grades-2148-.pdf")
 
 ;; RESULTS FOR 102:
 

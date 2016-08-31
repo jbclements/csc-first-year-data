@@ -212,7 +212,7 @@
      '(instructor (count))
      #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/post-2138-tot-ap-students.txt"
+  (with-output-to-file "/tmp/tot-ap-students-2148+.txt"
     (λ ()
       (for ([v majors-by-instructor])
         (apply printf "~v,~v\n" (vector->list v))))
@@ -224,16 +224,16 @@
      (make-table-from-select (inner-join pre-2158-123-instructors-with-ap
                                          grade-facts-table
                                          '(student)
-                                         #:permanent "57c61d96"
+                                         #:permanent "57c665ed"
                                          #:use-existing #t)
                              '(instructor student)
                              #:group-by '(student)
-                             #:permanent "57c61d97"
+                             #:permanent "57c665ee"
                              #:use-existing #t)
      '(instructor (count))
      #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/pre-2158-tot-ap-students.txt"
+  (with-output-to-file "/tmp/tot-ap-students-2148-.txt"
     (λ ()
       (for ([v majors-by-instructor])
         (apply printf "~v,~v\n" (vector->list v))))
@@ -268,7 +268,7 @@
      '(instructor (count))
      #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/post-2138-tot-non-ap-students.txt"
+  (with-output-to-file "/tmp/tot-non-ap-students-2148+.txt"
     (λ ()
       (for ([v majors-by-instructor])
         (apply printf "~v,~v\n" (vector->list v))))
@@ -289,7 +289,7 @@
      '(instructor (count))
      #:group-by '(instructor)))
 
-  (with-output-to-file "/tmp/pre-2158-tot-non-ap-students.txt"
+  (with-output-to-file "/tmp/tot-non-ap-students-2148-.txt"
     (λ ()
       (for ([v majors-by-instructor])
         (apply printf "~v,~v\n" (vector->list v))))
@@ -334,21 +334,21 @@
     (table-select pre-2158-instructor-grades-102
                   '(instructor grade (count))
                   #:group-by '(instructor grade)))
-  (csv-write results "/tmp/all-students-102-stats-2158-.txt"))
+  (csv-write results "/tmp/all-students-102-stats-2148-.txt"))
 
 (let ()
   (define results
     (table-select pre-2158-instructor-grades-102-with-ap
                   '(instructor grade (count))
                   #:group-by '(instructor grade)))
-  (csv-write results "/tmp/ap-students-102-stats-2158-.txt"))
+  (csv-write results "/tmp/ap-students-102-stats-2148-.txt"))
 
 (let ()
   (define results
     (table-select pre-2158-instructor-grades-102-without-ap
                   '(instructor grade (count))
                   #:group-by '(instructor grade)))
-  (csv-write results "/tmp/non-ap-students-102-stats-2158-.txt"))
+  (csv-write results "/tmp/non-ap-students-102-stats-2148-.txt"))
 
 (define pre-2158-students-with-123-grades
   (table-select grade-facts-table '(student)
@@ -406,7 +406,7 @@
                   #:group-by '(instructor)))
   (display pre-2158-skipped-102)
   (newline)
-  (csv-write pre-2158-skipped-102 "/tmp/pre-2158-skipped-102.txt")
+  (csv-write pre-2158-skipped-102 "/tmp/skipped-102-2148-.txt")
 
   (define pre-2158-skipped-102-with-ap
     (table-select (inner-join pre-2158-instructors-of-skipped-102s
@@ -428,11 +428,11 @@
 
   (displayln pre-2158-skipped-102-with-ap)
   (csv-write pre-2158-skipped-102-with-ap
-             "/tmp/pre-2158-skipped-102-ap.txt")
+             "/tmp/skipped-102-ap-2148-.txt")
 
   (displayln pre-2158-skipped-102-without-ap)
   (csv-write pre-2158-skipped-102-without-ap
-             "/tmp/pre-2158-skipped-102-no-ap.txt")
+             "/tmp/skipped-102-non-ap-2148-.txt")
 
 )
 
