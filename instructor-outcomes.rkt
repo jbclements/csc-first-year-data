@@ -399,6 +399,18 @@
 (skippers post-2108-123-instructors "57c67a66" "2118+")
 (skippers pre-2158-123-instructors "57c67a67" "2158-")
 
+(table-select
+ (inner-join has-ap student-123-instructors
+             '(student)
+             #:permanent "231442341"
+             #:use-existing #t)
+ '(123_qtr (count))
+ #:group-by '(123_qtr))
+(table-select
+ student-123-instructors
+ '(123_qtr (count))
+ #:group-by '(123_qtr))
+
 #;(set-subtract
  (set-intersect
   (list->set (table-select post-2138-123-instructors  '(student)))
