@@ -1,5 +1,8 @@
 #lang racket
 
+;; this file reads in the existing female-student csv file and rewrites it
+;; to a file in /tmp that's cleaned up.
+
 (require csv-reading)
 #;(require/typed csv-reading
                [csv->list (Port -> (Listof (Listof String)))])
@@ -260,6 +263,7 @@
          (map length email-bundles))
   (error "# of names in each bundle should all be the same"))
 
+;; return a list of four strings: first, middle, last, suffix
 (define (justify-name assoc)
   (for/list ([field (in-list '(f m l s))])
     (match (dict-ref assoc field '())
@@ -286,9 +290,15 @@
     [(regexp #px",") (~a "\"" c "\"")]
     [other c]))
 
-(with-output-to-file "/tmp/foo.csv"
+(define email-override
+  (hash "allielustig@gmail.com" "alustig@calpoly.edu"))
+
+(with-output-to-file "/tmp/female-123-students.csv"
   (λ ()
+    
     (csv-write
+     (cons (list "firstname" "middlenames" "lastname" "suffixes"
+                 "email" "instructor" "year")
      (apply
       append
      (for/list ([b (in-list bundles)]
@@ -298,10 +308,21 @@
        (for/list ([name (in-list n)]
                   [email (in-list e)]
                   [original-line (in-list (second b))])
+         (define amended-email
+           (string-trim
+            (match (hash-ref email-override email #f)
+              [#f email]
+              [(? string? s) s])))
+         (when (not (regexp-match? #px"^[a-z0-9]+@calpoly.edu$"
+                                   amended-email))
+           (error 'outputter
+                  "unexpected cpid: ~v\n"
+                  email))
          (append (justify-name name)
-                 (list email)
+                 (list amended-email)
                  h
-                 original-line))
-       ))))
+                 ;; causes problems...
+                 #;original-line))
+       )))))
   #:exists 'truncate)
 

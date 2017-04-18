@@ -11,14 +11,14 @@
 (provide
  (contract-out [make-table (->* ((listof symbol?)
                                  (sequence/c (sequence/c any/c)))
-                                (#:permanent string?
+                                (#:permanent permanent?
                                  #:use-existing boolean?)
                                table?)]
                [make-table-from-select
                 (->* (table? (listof colspec?))
                      (#:where any/c
                       #:group-by (listof symbol?)
-                      #:permanent string?
+                      #:permanent permanent?
                       #:use-existing boolean?)
                      table?)]
                [find-table (-> string? table?)]
@@ -36,15 +36,17 @@
                                    #:group-by (listof symbol?))
                                   (sequence/c (vectorof any/c)))]
                [natural-join (->* (table? table?)
-                                  (#:permanent string?
+                                  (#:permanent permanent?
                                    #:use-existing boolean?)
                                   table?)]
                [inner-join (->* (table? table? (listof colspec?))
-                                (#:permanent string?
+                                (#:permanent permanent?
                                  #:use-existing boolean?)
                                 table?)]
                [back-door/rows (-> string? boolean? any/c)])
  table?)
+
+(define permanent? (or/c string? '_))
 
 (define table? string?)
 (define colspec? (or/c symbol?
@@ -112,16 +114,15 @@
 
 ;; given a maybe-table-name, return the table name and connection to use
 (define (name-and-connection maybe-table-name)
-  (define permanent? maybe-table-name)
-  (when (and permanent?
-             (temp-table? maybe-table-name))
-    (error 'make-table
-           "can't create table with name ~e\n" maybe-table-name))
-  (define table-name
-    (cond [permanent? maybe-table-name]
-          [else (fresh-table-name!)]))
-  (define the-conn (if permanent? file-conn conn))
-  (list table-name the-conn))
+  (match maybe-table-name
+    [#f (list (fresh-table-name!) conn)]
+    ['_ (list (number->string (random 1e+10))
+              file-conn)]
+    [(? string? s)
+     (when (temp-table? maybe-table-name)
+       (error 'make-table
+              "can't create table with name ~e\n" maybe-table-name))
+     (list s file-conn)]))
 
 
 ;; given a name, return a table (actually just the same string)
@@ -265,8 +266,8 @@
                                 #:group-by [group-by #f]
                                 #:permanent [maybe-table-name #f]
                                 #:use-existing [use-existing? #f]) 
-  (match-define (list table-name the-conn) (name-and-connection
-                                            maybe-table-name))
+  (match-define (list table-name the-conn)
+    (name-and-connection maybe-table-name))
   (cond
     [(member table-name (list-tables the-conn))
      (cond [use-existing? table-name]
@@ -345,8 +346,11 @@
           ;; not clear what kind of strings sqlite accepts.
           ;; being conservative for now (no internet connection to
           ;; check...)
-          (regexp #px"^[-a-zA-Z0-9 .,!@#$%^&*()_]*$"))
-     (string-append "'" e "'")]
+          (regexp #px"^[-a-zA-Z0-9 .',!@#$%^&*()_]*$"))
+     ;; apparently single quotes are escaped as double singles:
+     (define noquotes
+       (regexp-replace #px"'" e "''"))
+     (string-append "'" noquotes "'")]
     ;; again, I'm sure some decimals will work fine...
     [(? integer? i) (number->string i)]))
 
@@ -426,7 +430,8 @@
               "'abc' = \"def\"")
 
 (check-equal? (parse-sql-expr 13) "13")
-(check-equal? (parse-sql-expr "abc") "'abc'")
+  (check-equal? (parse-sql-expr "abc") "'abc'")
+  (check-equal? (parse-sql-expr "ab'c") "'ab''c'")
 (check-equal? (parse-sql-expr 'abc) "\"abc\"")
 
 

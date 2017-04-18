@@ -1,5 +1,7 @@
 #lang typed/racket
 
+;; this is related to the proposed cohort tracking picture.
+
 (require typed/rackunit)
 
 (require/typed "student-tracks.rkt"

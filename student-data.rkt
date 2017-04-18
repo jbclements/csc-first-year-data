@@ -29,6 +29,10 @@
 (define post-123-grade-table
   (find-table "post_123_grades"))
 
+;; first last emplid
+(define names-table
+  (find-table "names"))
+
 
 
 ;(table-select grade-facts-table )

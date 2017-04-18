@@ -4,7 +4,8 @@
 
 ;; EDIT: 2016-05-04 (572a) - looking at new data, going back to 2005.
 
-(require "grades.rkt")
+(require "grades.rkt"
+         racket/runtime-path)
 
 (require/typed csv-reading
                [csv->list (Port -> (Listof (Listof String)))])
@@ -36,6 +37,26 @@
                        -> (Sequenceof (Vectorof Any)))]
                [back-door/rows
                 (String Boolean -> (Sequenceof (Vectorof Any)))])
+
+
+;; find the index of an element in a list
+(: find-pos (All (T) (T (Listof T) -> Natural)))
+(define (find-pos elt l)
+  (let loop ([remaining l] [i : Natural 0])
+    (cond [(empty? remaining) (error 'find-pos "couldn't find element")]
+          [else (cond [(equal? (first remaining) elt) i]
+                      [else (loop (cdr remaining) (add1 i))])])))
+
+(define-runtime-path HERE ".")
+
+;; build the female 123 student database
+#;(: cells (Listof (Listof String)))
+#;(define cells
+  (call-with-input-file (build-path HERE "female-123-students-clean.csv")
+    (λ (port)
+      (csv->list port))))
+
+  
 
 ;; rebuild the student databases
 
@@ -84,13 +105,6 @@
            "SCORE"))
   (error 'label-row "unexpected label row, please check code below."))
 
-;; find the index of an element
-(: find-pos (All (T) (T (Listof T) -> Natural)))
-(define (find-pos elt l)
-  (let loop ([remaining l] [i : Natural 0])
-    (cond [(empty? remaining) (error 'find-pos "couldn't find element")]
-          [else (cond [(equal? (first remaining) elt) i]
-                      [else (loop (cdr remaining) (add1 i))])])))
 
 (define ID-COL (find-pos "EMPLID" label-row))
 (define AP-TEST-NAME-COL (find-pos "TEST" label-row))
@@ -237,7 +251,7 @@
     (natural-join all-grades-table non-early-table
                   #:permanent "grades"))
 
-  (: student-first-quarters (Listof (Vector Any Real)))
+(: student-first-quarters (Listof (Vector Any Real)))
 (define student-first-quarters
   ((inst map (Vector Any Real) (Listof (Vector Any Real)))
    first
@@ -254,34 +268,34 @@
        (table-select grade-facts-table '(student qtr))))
      (Listof (Listof (Vector Any Real)))))))
 
-  (define student-first-qtr-table
-    (make-table '(student qtr) student-first-quarters
-                #:permanent "student_first_qtr"))
+(define student-first-qtr-table
+  (make-table '(student qtr) student-first-quarters
+              #:permanent "student_first_qtr"))
 
-  (define pre-2152-grade-table
-    (natural-join
-     grade-facts-table
-     (make-table-from-select student-first-qtr-table '(student)
-                             #:where '((< qtr 2152))
-                             #:permanent "t1")
-     #:permanent "pre_2152_grades"))
+(natural-join
+ grade-facts-table
+ (make-table-from-select student-first-qtr-table '(student)
+                         #:where '((< qtr 2152))
+                         #:permanent "t1")
+ #:permanent "pre_2152_grades")
 
-  (define pre-123-grade-table
-    (natural-join
-     grade-facts-table
-     (make-table-from-select student-first-qtr-table '(student)
-                             #:where '((< qtr 2108))
-                             #:permanent "t2")
-     #:permanent "pre_123_grades"))
+(natural-join
+ grade-facts-table
+ (make-table-from-select student-first-qtr-table '(student)
+                         #:where '((< qtr 2108))
+                         #:permanent "t2")
+ #:permanent "pre_123_grades")
 
-  (define post-123-grade-table
-    (natural-join
-     grade-facts-table
-     (make-table-from-select student-first-qtr-table '(student)
-                             #:where '((<= 2108 qtr)
-                                       (< qtr 2152))
-                             #:permanent "t3")
-     #:permanent "post_123_grades"))
+(natural-join
+ grade-facts-table
+ (make-table-from-select student-first-qtr-table '(student)
+                         #:where '((<= 2108 qtr)
+                                   (< qtr 2152))
+                         #:permanent "t3")
+ #:permanent "post_123_grades")
+
+
+
   
 (printf "done building databases from csv files.\n")
 

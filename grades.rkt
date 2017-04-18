@@ -4,7 +4,8 @@
          class-ordering
          success-grades
          qtrs-in-range
-         vref)
+         vref
+         qtr-incr)
 
 ;; shared knowledge about grades.
 ;; and classes.
@@ -40,3 +41,15 @@
 (: vref (All (T) (Integer -> ((Vectorof T) -> T))))
 (define (vref idx)
   (λ ([v : (Vectorof T)]) (vector-ref v idx)))
+
+;; given a quarter, go to the "next" quarter, skipping
+;; over summer (and the nonexistent 0)
+(: qtr-incr (Natural -> Natural))
+(define (qtr-incr qtr)
+  (define incr
+    (match (modulo qtr 10)
+      [2 2]
+      [4 2]
+      [6 2]
+      [8 4]))
+  (+ qtr incr))
