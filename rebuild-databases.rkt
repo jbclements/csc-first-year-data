@@ -63,7 +63,7 @@
 ;; a list of lists representing the cells in the csv file
 (: cells (Listof (Listof String)))
 (define cells
-  (call-with-input-file "/Users/clements/clements/datasets/student-data-2005-2016.csv"
+  (call-with-input-file "/Users/clements/clements/datasets/student-data-2052-2164.csv"
     (λ (port)
       (csv->list port))))
 
