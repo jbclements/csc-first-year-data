@@ -4,40 +4,6 @@
 ;; to a file in /tmp that's cleaned up.
 
 (require csv-reading)
-#;(require/typed csv-reading
-               [csv->list (Port -> (Listof (Listof String)))])
-
-#;(require/typed "table-sqlite.rkt"
-               [#:opaque Table table?]
-               [make-table
-                ((Listof Symbol)
-                 (Sequenceof (Sequenceof Any))
-                 [#:permanent String]
-                 -> Table)]
-               [make-table-from-select
-                (Table
-                 (Listof Any)
-                 [#:where Any]
-                 [#:group-by Any]
-                 [#:permanent String]
-                 -> Table)]
-               [natural-join
-                (Table Table
-                 [#:permanent String]
-                 -> Table)]
-               [find-table (String -> Table)]
-               [in-table-column (Table Symbol -> (Sequenceof Any))]
-               [table-select
-                (Table (Listof Any)
-                       [#:where Any]
-                       [#:group-by Any]
-                       -> (Sequenceof (Vectorof Any)))]
-               [back-door/rows
-                (String Boolean -> (Sequenceof (Vectorof Any)))])
-
-;; rebuild the student databases
-
-
 
 (define EMAIL-CELL-REGEXP
   #px"^ *[^ @]+@[^ ]+ *$")
@@ -94,10 +60,15 @@
 ;(: cells (Listof (Listof String)))
 (define rows
   ;; dump the header row:
-  (rest
-   (call-with-input-file "/Users/clements/clements/datasets/female-123-students.csv" 
-    (λ (port)
-      (csv->list port)))))
+  (append
+   (rest
+    (call-with-input-file "/Users/clements/clements/datasets/\
+female-123-students.csv" 
+      csv->list))
+   (list (list))
+   (call-with-input-file "/Users/clements/clements/datasets/\
+female-123-students-2168.csv" 
+      csv->list)))
 
 ;; a bundle contains a list of header rows and a list of
 ;; student rows
@@ -148,13 +119,19 @@
     [(list _ str)
      (match (regexp-split #px"," str)
        [(list last firstplus)
-        (match (regexp-split #px" +" (string-trim firstplus))
-          [(list first) `((f ,first) (l ,last))]
-          [(list first middle) `((f ,first) (m ,middle) (l ,last))]
-          [(list first middle1 middle2)
-            `((f ,first) (m ,(~a middle1 " " middle2))
-                         (l ,last))])])]))
+        (lastfirst-helper last firstplus)]
+       [(list last firstplus (regexp #px"^ *$"))
+        (lastfirst-helper last firstplus)])]))
 
+(define (lastfirst-helper last firstplus)
+  (match (regexp-split #px" +" (string-trim firstplus))
+    [(list first) `((f ,first) (l ,last))]
+    [(list first middle) `((f ,first) (m ,middle) (l ,last))]
+    [(list first middle1 middle2)
+     `((f ,first) (m ,(~a middle1 " " middle2))
+                  (l ,last))]))
+
+;; last then first in one string with no comma
 (define (lastfirst-nocomma-style r)
   (match r
     [(list _ str)
@@ -162,6 +139,7 @@
        [(list last first)
         `((f ,first) (l ,last))])]))
 
+;; first and last together in one string
 (define (firstlast-style r)
   (match r
     ;; special case for some ending with commas
@@ -174,11 +152,14 @@
      (match (regexp-split #px" +" (string-trim str))
        ;; special case for vivian fong
        [(list first last "vfong01") `((f ,first) (l ,last))]
-       ;; special case for suffix of I
+       ;; special case for suffix of 'I'
        [(list first last "I") `((f ,first) (l ,last) (s "I"))]
+       ;; special case for suffix of 'i'
+       [(list first last "i") `((f ,first) (l ,last) (s "i"))]
        [(list first last) `((f ,first) (l ,last))]
        )]))
 
+;; the first name is in the first field, the last name is in the second
 (define (separated-style r)
   (match r
     [(list 'c first last) `((f ,first) (l ,last))]))
@@ -198,7 +179,12 @@
         lastfirst-style lastfirst-style
         firstlast-style lastfirst-style
         lastfirst-style lastfirst-style
-        firstlast-style))
+        firstlast-style
+
+        lastfirst-style separated-style
+        firstlast-style lastfirst-style
+        lastfirst-style separated-style
+        ))
 
 (define parsed-name-bundles
   (for/list ([bundle (in-list name-bundles)]
@@ -221,7 +207,10 @@
      (list person (string->number yearstr))]
     [(regexp #px"^[0-9]+$" (list yearstr))
      (list 'same (string->number yearstr))]
-    [other `(blarg ,other)]
+    [other (error 'process-header
+                  "unexpected header: ~e"
+                  other)]
+    #;[other `(blarg ,other)]
     #;["Clements2012" '("Clements" 2012)]
     #;["Haungs - 2012" '("Haungs" 2012)]
     #;["Workman-2012"]))
@@ -256,7 +245,12 @@
            (length bundles)
            (length parsed-name-bundles)
            (length email-bundles))
-  (error "# of bundles should all be the same"))
+  (error 'equal-length-check
+         "# of bundles should all be the same, got lengths: ~v"
+         (list (length header-pairs)
+               (length bundles)
+               (length parsed-name-bundles)
+               (length email-bundles))))
 (unless (all-equal?
          (map length (map second bundles))
          (map length parsed-name-bundles)
