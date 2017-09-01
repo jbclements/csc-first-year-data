@@ -7,12 +7,9 @@
          "student-data.rkt"
          "table-sqlite.rkt")
 
-(define lines
-  (call-with-input-file "/Users/clements/clements/datasets/cpe-123-rosters.csv"
-    csv->list))
-
-(first lines)
-
+;; strip a leading byte order mark from an input port
+(define (discard-bom p)
+  (void (regexp-try-match #rx"^\uFEFF" p)))
 
 ;; given a number represented as a string, pad with leading
 ;; zeros to get to length 9
@@ -31,17 +28,78 @@
     [(regexp #px"^Fall Quarter ([[:digit:]]+)$" (list _ y))
      (+ 2008 (* 10 (modulo (string->number y) 100)))]))
 
+
+;; copied from rebuild-databases. Should probably be in a library:
+;; find the index of an element in a list
+(define (find-pos elt l)
+  (let loop ([remaining l] [i 0])
+    (cond [(empty? remaining) (error 'find-pos "couldn't find element: ~v"
+                                     elt)]
+          [else (cond [(equal? (first remaining) elt) i]
+                      [else (loop (cdr remaining) (add1 i))])])))
+
+;; given csv list (where first element is titles) and a list of
+;; desired column headers, return a csv list containing only those
+;; columns (in the order specified by colnames
+(define (csv-extract-columns lines colnames)
+  (define desired-indices
+    (for/list ([colname colnames]) (find-pos colname (first lines))))
+  (for/list ([line (in-list lines)])
+    (for/list ([idx (in-list desired-indices)])
+      (list-ref line idx))))
+
+(require rackunit)
+(check-equal? (csv-extract-columns
+               '(("a" "zz" "b" q9)
+                 (1 2 3 4)
+                 (5 6 7 8)
+                 (9 10 11 12))
+               '(q9 "a"))
+              '((q9 "a")
+                (4 1)
+                (8 5)
+                (12 9)))
+
+(define desired-columns
+  '("Primary Instructor"
+    "Emplid"
+    "Term"))
+
+(define data-2118-2158
+  (csv-extract-columns
+   (call-with-input-file "/Users/clements/clements/datasets/cpe-123-rosters-2118-2158.csv"
+     csv->list)
+   desired-columns))
+
+(first data-2118-2158)
+
+(define data-2168
+  (csv-extract-columns
+   (call-with-input-file
+       "/Users/clements/clements/datasets/cpe-123-rosters-2168.csv"
+     (λ (port)
+       (begin (discard-bom port)
+              (csv->list port))))
+   desired-columns))
+
+(define student-instructor-data
+  (cons (first data-2118-2158)
+        (remove-duplicates
+         (append
+          (rest data-2118-2158)
+          (rest data-2168)))))
+
 (define student-123-instructors
   (make-table '(instructor student 123_qtr)
-   (for/list ([l (in-list (rest lines))])
-     (vector (list-ref l 6)
-             (pad-to-9 (list-ref l 8))
-             (qtr-text->qtr (list-ref l 0))))
+   (for/list ([l (in-list (rest student-instructor-data))])
+     (vector (first l)
+             (pad-to-9 (second l))
+             (qtr-text->qtr (third l))))
    #:permanent "student_instructors_123"
    #:use-existing #t
    ))
 
-(printf "students in the 123 list: ~v\n" (length (rest lines)))
+(printf "students in the 123 list: ~v\n" (length (rest student-instructor-data)))
 
 (define major-student-123-instructors
   (make-table-from-select
@@ -51,9 +109,19 @@
                #:permanent "57bb"
                #:use-existing #t)
    '(student instructor 123_qtr)
-   #:group-by '(student instructor)
+   #:group-by '(student instructor 123_qtr)
    #:permanent "57c0b455"
    #:use-existing #t))
+
+;; make sure nobody took 123 twice...
+(unless (equal?
+         (table-select major-student-123-instructors '((count)))
+         (list
+          (vector
+           (length
+            (table-select major-student-123-instructors '((count))
+                          #:group-by '(student instructor))))))
+  (error 'ono201708happyweddingandybrenna))
 
 (printf "students in the 123 list also in the grade list: ~v\n"
         (table-size major-student-123-instructors))
@@ -111,7 +179,7 @@
               #:permanent "students_without_ap"
               #:use-existing #t))
 
-;; students and instructors for majors in 2014,2015
+;; students and instructors for majors in 2014,...
 (define post-2138-123-instructors
   (make-table-from-select
    major-student-123-instructors '(student instructor)
@@ -122,10 +190,17 @@
 (define pre-2158-123-instructors
   (make-table-from-select
    major-student-123-instructors '(student instructor)
-   #:where '((< 123_qtr 2158)
-             (< 2108 123_qtr))
+   #:where '((< 123_qtr 2158))
    #:permanent "pre_2158_123_instructors57c0b456"
    #:use-existing #t))
+
+(define pre-2168-123-instructors
+  (make-table-from-select
+   major-student-123-instructors '(student instructor)
+   #:where '((< 123_qtr 2168))
+   #:permanent "pre_2158_123_instructors59a9e006"
+   #:use-existing #t))
+
 
 (define post-2108-123-instructors
   (make-table-from-select
@@ -134,7 +209,7 @@
    #:permanent "post_2108_123_instructors57c0b456"
    #:use-existing #t))
 
-(printf "count by instructor of students in 123 in the major in 2014 and 2015")
+(printf "count by instructor of students in 123 in the major in 2014 and later")
 (table-select post-2138-123-instructors
               '(instructor (count))
               #:group-by '(instructor))
@@ -144,7 +219,7 @@
               '(instructor (count))
               #:group-by '(instructor))
 
-(printf "count by instructor of students in 123 in the major in 2011-2015")
+(printf "count by instructor of students in 123 in the major in 2011-")
 (table-select post-2108-123-instructors
               '(instructor (count))
               #:group-by '(instructor))
@@ -184,6 +259,8 @@
               "/tmp/tot-students-2148+.txt")
 (write-totals "57c67a61" pre-2158-123-instructors
               "/tmp/tot-students-2148-.txt")
+(write-totals "57c67a63" pre-2168-123-instructors
+              "/tmp/tot-students-2158-.txt")
 (write-totals "57c67a62" post-2108-123-instructors
               "/tmp/tot-students-2118+.txt")
 
@@ -202,6 +279,13 @@
               #:permanent "pre_5_123_with_ap"
               #:use-existing #t))
 
+(define pre-2168-123-instructors-with-ap
+  (inner-join pre-2168-123-instructors 
+              has-ap
+              '(student)
+              #:permanent "pre_6_123_with_ap"
+              #:use-existing #t))
+
 (define post-2108-123-instructors-with-ap
   (inner-join post-2108-123-instructors 
               has-ap
@@ -213,6 +297,8 @@
               "/tmp/tot-ap-students-2148+.txt")
 (write-totals "57c66793" pre-2158-123-instructors-with-ap
               "/tmp/tot-ap-students-2148-.txt")
+(write-totals "57c66795" pre-2168-123-instructors-with-ap
+              "/tmp/tot-ap-students-2158-.txt")
 (write-totals "57c66794" post-2108-123-instructors-with-ap
               "/tmp/tot-ap-students-2118+.txt")
 
@@ -232,6 +318,13 @@
               #:permanent "57c61d99"
               #:use-existing #t))
 
+(define pre-2168-123-instructors-without-ap
+  (inner-join pre-2168-123-instructors 
+              no-has-ap
+              '(student)
+              #:permanent "59a9e006"
+              #:use-existing #t))
+
 (define post-2108-123-instructors-without-ap
   (inner-join post-2108-123-instructors 
               no-has-ap
@@ -243,6 +336,8 @@
               "/tmp/tot-non-ap-students-2148+.txt")
 (write-totals "57c67a64" pre-2158-123-instructors-without-ap
               "/tmp/tot-non-ap-students-2148-.txt")
+(write-totals "59a9e145" pre-2168-123-instructors-without-ap
+              "/tmp/tot-non-ap-students-2158-.txt")
 (write-totals "57c67a65" post-2108-123-instructors-without-ap
               "/tmp/tot-non-ap-students-2118+.txt")
 
@@ -288,6 +383,24 @@
                 #:permanent "instructor_grades_102_without_ap_p5"
                 #:use-existing #t))
 
+(define pre-2168-instructor-grades-102
+  (natural-join first-time-102-grades
+                pre-2168-123-instructors 
+                #:permanent "instructor_grades_102_p6"
+                #:use-existing #t))
+
+(define pre-2168-instructor-grades-102-with-ap
+  (natural-join first-time-102-grades
+                pre-2168-123-instructors-with-ap
+                #:permanent "instructor_grades_102_with_ap_p6"
+                #:use-existing #t))
+
+(define pre-2168-instructor-grades-102-without-ap
+  (natural-join first-time-102-grades
+                pre-2168-123-instructors-without-ap
+                #:permanent "instructor_grades_102_without_ap_p6"
+                #:use-existing #t))
+
 (define (write-stats table file)
   (define results
     (table-select table
@@ -308,6 +421,13 @@
              "/tmp/ap-students-102-stats-2148-.txt")
 (write-stats pre-2158-instructor-grades-102-without-ap
              "/tmp/non-ap-students-102-stats-2148-.txt")
+
+(write-stats pre-2168-instructor-grades-102
+             "/tmp/all-students-102-stats-2158-.txt")
+(write-stats pre-2168-instructor-grades-102-with-ap
+             "/tmp/ap-students-102-stats-2158-.txt")
+(write-stats pre-2168-instructor-grades-102-without-ap
+             "/tmp/non-ap-students-102-stats-2158-.txt")
 
 (define post-2108-students-with-123-grades
   (table-select grade-facts-table '(student)
@@ -358,7 +478,7 @@
                 #:permanent (string-append temptable "d")
                 #:use-existing #t))
   
-  (printf "# of students that skipped 101, by 123 instructor")
+  (printf "# of students that skipped 101, by 123 instructor\n")
   (define skipped-101
     (table-select instructors-of-skipped-101s
                   '(instructor (count))
@@ -385,18 +505,23 @@
                               #:use-existing #t)
                   '(instructor (count))
                   #:group-by '(instructor)))
-
+  (printf "students that skipped 101 with AP credit:\n")
   (displayln skipped-101-with-ap)
   (csv-write skipped-101-with-ap
              (~a "/tmp/skipped-102-ap-" timestr ".txt"))
+  ;; weird! why so many in last 2 years? Something strange!
 
+
+  (printf "students that skipped 101 without AP credit:\n")
   (displayln skipped-101-without-ap)
   (csv-write skipped-101-without-ap
              (~a "/tmp/skipped-101-non-ap-" timestr ".txt"))
 
 )
 
+(printf "\npost-2108-skippers:\n")
 (skippers post-2108-123-instructors "57c67a66" "2118+")
+(printf "\npre-2158-skippers:\n")
 (skippers pre-2158-123-instructors "57c67a67" "2158-")
 
 (table-select

@@ -16,6 +16,7 @@
                 ((Listof Symbol)
                  (Sequenceof (Sequenceof Any))
                  [#:permanent String]
+                 [#:use-existing Boolean]
                  -> Table)]
                [make-table-from-select
                 (Table
@@ -63,7 +64,7 @@
 ;; a list of lists representing the cells in the csv file
 (: cells (Listof (Listof String)))
 (define cells
-  (call-with-input-file "/Users/clements/clements/datasets/student-data-2052-2164.csv"
+  (call-with-input-file "/Users/clements/clements/datasets/student-data-2052-2174.csv"
     (λ (port)
       (csv->list port))))
 
@@ -75,11 +76,53 @@
 (: non-label-rows (Listof (Listof String)))
 (define non-label-rows (rest cells))
 
+(define idx-tmp 10)
+(equal? (take label-row idx-tmp)
+        (take '("FIRST_NAME"
+           "LAST_NAME"
+           "EMPLID"
+           "FIRST_TERM"
+           "FIRST_MAJOR"
+           "FIRST_CLASS_LEVEL"
+           "LAST_TERM"
+           "LAST_MAJOR"
+           "LAST_TERM"
+           "LAST_CLASS_LEVEL"
+           "TERM_CODE"
+           "CPE_CLASS"
+           "GRADE"
+           "TERM_CODE"
+           "CPE_CLASS"
+           "GRADE"
+           "TERM_CODE"
+           "CPE_CLASS"
+           "GRADE"
+           "TERM_CODE"
+           "CPE_CLASS"
+           "GRADE"
+           "TEST"
+           "SCORE")
+              idx-tmp ))
 ;; sanity check on the labels:
 ;; yikes... just insist that the labels be these:
 (unless (equal?
          label-row
          '("FIRST_NAME"
+  "LAST_NAME"
+  "EMPLID"
+  "FIRST_TERM"
+  "FIRST_MAJOR"
+  "FIRST_CLASS_LEVEL"
+  "LAST_TERM"
+  "LAST_MAJOR"
+  "LAST_TERM"
+  "LAST_CLASS_LEVEL"
+  "TERM_CODE"
+  "CPE_CLASS"
+  "GRADE"
+  "TEST"
+  "SCORE")
+         #;'("FIRST_NAME"
            "LAST_NAME"
            "EMPLID"
            "FIRST_TERM"
@@ -111,7 +154,7 @@
 (define AP-TEST-SCORE-COL (find-pos "SCORE" label-row))
 
 (: GOOD-LABELS-COUNT Natural)
-(define GOOD-LABELS-COUNT 24)
+(define GOOD-LABELS-COUNT (length label-row) #;24)
 
 (unless (for/and : Boolean ([row (in-list non-label-rows)])
           (not (not (member (list-ref row AP-TEST-NAME-COL)
@@ -140,7 +183,8 @@
      (take row 3))))
 
   (make-table '(first last emplid) student-infos
-              #:permanent "names")
+              #:permanent "names"
+              #:use-existing #t)
 
 ;; ensure ids are as unique as all other student info:
 (unless (= (length student-infos)
@@ -148,10 +192,13 @@
                     (map (inst third String String String String) student-infos))))
   (error 'non-unique-email-ids))
 
-;; IT'S NOW SAFE TO USE EMPLIDS AS UNIQUE IDS.
+"IT'S NOW SAFE TO USE EMPLIDS AS UNIQUE IDS."
 
 ;; each row contains up to five distinct facts, ugh.
-(define class-info-cols (list 10 13 16 19))
+;; EDIT except not any more?
+(define class-info-cols
+  (list 10)
+  #;(list 10 13 16 19))
 (: row->class-facts ((Listof String) -> (Listof (Listof
                                                  (U String Number)))))
 (define (row->class-facts row)
@@ -209,6 +256,7 @@
     (make-table '(student qtr class grade)
                 all-class-facts
                 #:permanent "all_grades"
+                #:use-existing #t
                 ))
 
   (define ap-scores-table
@@ -220,15 +268,15 @@
 ;; this code is probably redundant, could use "first-quarter"
 ;; list defined below.
 
-  ;; create a view without the early students:
-  (: early-students (Listof String))
-  (define early-students
-    (map (λ ([v : Any])
-           (vector-ref (cast v (Vector String)) 0))
-         (sequence->list
-          (table-select all-grades-table '(student)
-                        #:where '((< qtr 2058))
-                        #:group-by '(student)))))
+;; create a view without the early students:
+(: early-students (Listof String))
+(define early-students
+  (map (λ ([v : Any])
+         (vector-ref (cast v (Vector String)) 0))
+       (sequence->list
+        (table-select all-grades-table '(student)
+                      #:where '((< qtr 2058))
+                      #:group-by '(student)))))
 
   (: all-students (Listof String))
   (define all-students
@@ -247,9 +295,10 @@
   (make-table '(student) non-early-students
               #:permanent "non_early_students"))
 
-  (define grade-facts-table
-    (natural-join all-grades-table non-early-table
-                  #:permanent "grades"))
+;; this table omits those who were here before 2058
+(define grade-facts-table
+  (natural-join all-grades-table non-early-table
+                #:permanent "grades"))
 
 (: student-first-quarters (Listof (Vector Any Real)))
 (define student-first-quarters
@@ -272,7 +321,8 @@
   (make-table '(student qtr) student-first-quarters
               #:permanent "student_first_qtr"))
 
-(natural-join
+;; don't think we want this?
+#;(natural-join
  grade-facts-table
  (make-table-from-select student-first-qtr-table '(student)
                          #:where '((< qtr 2152))
@@ -290,7 +340,8 @@
  grade-facts-table
  (make-table-from-select student-first-qtr-table '(student)
                          #:where '((<= 2108 qtr)
-                                   (< qtr 2152))
+                                   #;(< qtr 2152)
+                                   )
                          #:permanent "t3")
  #:permanent "post_123_grades")
 
