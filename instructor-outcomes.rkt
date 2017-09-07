@@ -404,8 +404,7 @@
   (printf "students that skipped 101 with AP credit:\n")
   (displayln skipped-101-with-ap)
   (csv-write skipped-101-with-ap
-             (~a "/tmp/skipped-102-ap-" timestr ".txt"))
-  ;; weird! why so many in last 2 years? Something strange!
+             (~a "/tmp/skipped-101-ap-" timestr ".txt"))
 
 
   (printf "students that skipped 101 without AP credit:\n")
@@ -413,12 +412,65 @@
   (csv-write skipped-101-without-ap
              (~a "/tmp/skipped-101-non-ap-" timestr ".txt"))
 
+  (define instructors-of-skipped-102s
+    (inner-join source-table 
+                (make-table '(student)
+                            got-a-grade-in-103-but-not-102
+                            #:permanent (string-append temptable "c")
+                            #:use-existing #t)
+                '(student)
+                #:permanent (string-append temptable "d")
+                #:use-existing #t))
+
+  (printf "# of students that skipped 102, by 123 instructor\n")
+  (define skipped-102
+    (table-select instructors-of-skipped-102s
+                  '(instructor (count))
+                  #:group-by '(instructor)))
+  (display skipped-102)
+  (newline)
+  (csv-write skipped-102 (~a "/tmp/skipped-102-"timestr".txt"))
+
+  (define skipped-102-with-ap
+    (table-select
+     (inner-join instructors-of-skipped-101s
+                 has-ap
+                 '(student)
+                 #:permanent (string-append temptable "z")
+                 #:use-existing #t)
+     '(instructor (count))
+     #:group-by '(instructor)))
+
+  (define skipped-102-without-ap
+    (table-select (inner-join instructors-of-skipped-102s
+                              no-has-ap
+                              '(student)
+                              #:permanent (string-append temptable "f")
+                              #:use-existing #t)
+                  '(instructor (count))
+                  #:group-by '(instructor)))
+  (printf "students that skipped 102 with AP credit:\n")
+  (displayln skipped-102-with-ap)
+  (csv-write skipped-102-with-ap
+             (~a "/tmp/skipped-102-ap-" timestr ".txt"))
+
+  (printf "students that skipped 102 without AP credit:\n")
+  (displayln skipped-102-without-ap)
+  (csv-write skipped-102-without-ap
+             (~a "/tmp/skipped-102-non-ap-" timestr ".txt"))
+  
+  
+
+  
+
 )
 
 (printf "\npost-2108-skippers:\n")
 (skippers post-2108-123-instructors "57c67a66" "2118+")
 (printf "\npre-2158-skippers:\n")
-(skippers pre-2158-123-instructors "57c67a67" "2158-")
+(skippers pre-2158-123-instructors "57c67a67" "2148-")
+(printf "\npre-2168-skippers:\n")
+(skippers pre-2168-123-instructors "57c67a67aoeu" "2158-")
 
 (table-select
  (inner-join has-ap student-123-instructors
@@ -439,3 +491,16 @@
                            #:where '((= class "CPE 103")))))
  (list->set (table-select grade-facts-table '(student)
                           #:where '((= class "CPE 102")))))
+
+
+(define temptemp
+  (inner-join pre-2168-123-instructors
+              (make-table-from-select
+               grade-facts-table
+               '(student grade)
+               #:where '((= class "CPE 102"))
+               #:permanent "59a9ee42abc"
+               #:use-existing #t)
+              '(student)
+              #:permanent "59a9ee43abc"
+              #:use-existing #t))
