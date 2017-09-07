@@ -36,7 +36,7 @@
   (postgresql-connect #:user USER
                       #:password PASSWORD
                       #:port 5432
-                      #:database "grading"))
+                      #:database "cssegrades"))
 
 ;; the parameter that controls how connections are made.
 (define connection-maker
