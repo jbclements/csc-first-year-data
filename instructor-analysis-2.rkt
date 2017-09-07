@@ -2,7 +2,7 @@
 
 (require csv-reading)
 
-(define all-students
+#;((define all-students
   (call-with-input-file "/tmp/ap-students-102-stats-2158-.txt"
     csv->list))
 
@@ -12,6 +12,30 @@
 
 (define skippers
   (call-with-input-file "/tmp/skipped-102-ap-2158-.txt"
+    csv->list)))
+
+#;((define all-students
+  (call-with-input-file "/tmp/non-ap-students-102-stats-2158-.txt"
+    csv->list))
+
+(define student-nums
+  (call-with-input-file "/tmp/tot-non-ap-students-2158-.txt"
+    csv->list))
+
+(define skippers
+  (call-with-input-file "/tmp/skipped-102-non-ap-2158-.txt"
+    csv->list)))
+
+(define all-students
+  (call-with-input-file "/tmp/non-ap-students-101-stats-2118+.txt"
+    csv->list))
+
+(define student-nums
+  (call-with-input-file "/tmp/tot-non-ap-students-2118+.txt"
+    csv->list))
+
+(define skippers
+  (call-with-input-file "/tmp/skipped-101-non-ap-2118+.txt"
     csv->list))
 
 student-nums
@@ -21,6 +45,7 @@ skippers
 (define (curriculum-mapping instructor)
   (match instructor
     ("Bellardo, John Michael" 'mobile)
+    ("DeBruhl II, Bruce Edward" 'security)
     ("Clements, John B." 'music)
     ("Haungs, Michael L." 'gaming)
     ("Janzen, David S." 'mobile)
@@ -40,7 +65,9 @@ skippers
     ['gaming "Gaming"]))
 
 (define all-curricula
-  (remove-duplicates (map curriculum-mapping (map first all-students))))
+  (remove-duplicates
+   (map curriculum-mapping (map first all-students))))
+all-curricula
 
 (define (grade->gpa g)
   (match g
@@ -113,12 +140,13 @@ skippers
        (group-by (λ (r) (curriculum-mapping (first r)))
                  skippers)))
 
+;; giving up means you took 123 but not this class, unless you skipped it.
 (define gave-ups
   (for/list ([curriculum (in-list all-curricula)])
     (list curriculum
           (- (first (dict-ref curriculum-majors curriculum))
              (first (dict-ref curriculum-totals-from-101-grades curriculum))
-             #;(first (dict-ref curriculum-skippers curriculum (list 0)))))))
+             (first (dict-ref curriculum-skippers curriculum (list 0)))))))
 
 (define summed-grades-by-curriculum-and-grade
   (map (λ (r) (list (take r 2) (third r)))
@@ -167,9 +195,9 @@ skippers
             #:label (symbol->string (first pr))
             #:style style
             #:color i))
- #:x-label "GPA of AP student in 102"
- #:y-label "density of AP students with this GPA"
- "/tmp/ap-102-grades-2158-.pdf")
+ #:x-label "GPA of non-AP student in 101"
+ #:y-label "density of non-AP students with this GPA"
+ "/tmp/non-ap-101-grades-2118+.pdf")
 
 ;; RESULTS FOR 102:
 
