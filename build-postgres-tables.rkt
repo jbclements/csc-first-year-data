@@ -1,10 +1,11 @@
 #lang racket
 
+;; this maps the all-grades-ever ad-hoc csv results to rows for the cssegrades database
 (require csv-reading
          "emplid-hasher.rkt")
 
 (define d
-  (call-with-input-file "/Users/clements/clements/datasets/student-data-2052-2164.csv"
+  (call-winth-input-file "/Users/clements/clements/datasets/student-data-2052-2164.csv"
     csv->list))
 
 (define rows (rest d))
