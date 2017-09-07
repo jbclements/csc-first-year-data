@@ -1,6 +1,6 @@
 #lang typed/racket
 
-;; this table provides all of the student data tables.
+;; this table provides all of the student data tables without recomputing them
 
 (provide (all-defined-out))
 
@@ -20,7 +20,7 @@
 (define student-first-qtr-table
   (find-table "student_first_qtr"))
 
-(define pre-2152-grade-table
+#;(define pre-2152-grade-table
   (find-table "pre_2152_grades"))
 
 (define pre-123-grade-table
@@ -32,6 +32,10 @@
 ;; first last emplid
 (define names-table
   (find-table "names"))
+
+;; instructor student 123_qtr
+(define student-123-instructors
+  (find-table "student_instructors_123"))
 
 
 

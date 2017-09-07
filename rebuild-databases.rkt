@@ -10,7 +10,7 @@
 (require/typed csv-reading
                [csv->list (Port -> (Listof (Listof String)))])
 
-(require/typed "table-sqlite.rkt"
+(require/typed sqlite-table
                [#:opaque Table table?]
                [make-table
                 ((Listof Symbol)
@@ -47,6 +47,11 @@
     (cond [(empty? remaining) (error 'find-pos "couldn't find element")]
           [else (cond [(equal? (first remaining) elt) i]
                       [else (loop (cdr remaining) (add1 i))])])))
+
+;; strip a leading byte order mark from an input port
+(: discard-bom (Input-Port -> Void))
+(define (discard-bom p)
+  (void (regexp-try-match #rx"^\uFEFF" p)))
 
 (define-runtime-path HERE ".")
 
@@ -263,6 +268,7 @@
     (make-table '(student score)
                 all-test-facts
                 #:permanent "ap_scores"
+                #:use-existing #t
                 ))
 
 ;; this code is probably redundant, could use "first-quarter"
@@ -293,7 +299,8 @@
   
 (define non-early-table
   (make-table '(student) non-early-students
-              #:permanent "non_early_students"))
+              #:permanent "non_early_students"
+              #:use-existing #t))
 
 ;; this table omits those who were here before 2058
 (define grade-facts-table
@@ -346,7 +353,101 @@
  #:permanent "post_123_grades")
 
 
+(printf "time to build instructor/section tables.\n")
 
+
+
+
+;; given a number represented as a string, pad with leading
+;; zeros to get to length 9
+(: pad-to-9 (String -> String))
+(define (pad-to-9 s)
+  (define diff (- 9 (string-length s)))
+  (cond [(<= 0 diff)
+         (string-append (apply string
+                               (for/list : (Listof Char)
+                                 ([i (in-range diff)]) #\0))
+                        s)]
+        [else
+         (error 'pad-to-9
+                "string of length <= 9"
+                0 s)]))
+
+(: qtr-text->qtr (String -> Natural))
+(define (qtr-text->qtr str)
+  (match str
+    [(regexp #px"^Fall Quarter ([[:digit:]]+)$" (list _ y))
+     (+ 2008 (* 10 (modulo (cast (string->number (cast y String))
+                                 Natural)
+                           100)))]))
+
+;; given csv list (where first element is titles) and a list of
+;; desired column headers, return a csv list containing only those
+;; columns (in the order specified by colnames
+(: csv-extract-columns (All (T) ((Listof (Listof T))
+                                 (Listof T)
+                                 -> (Listof (Listof T)))))
+(define (csv-extract-columns lines colnames)
+  (define desired-indices
+    (for/list : (Listof Natural)
+      ([colname colnames]) (find-pos colname (first lines))))
+  (for/list ([line (in-list lines)])
+    (for/list : (Listof T)
+      ([idx (in-list desired-indices)])
+      (list-ref line idx))))
+
+(require typed/rackunit)
+(check-equal? (csv-extract-columns
+               '(("a" "zz" "b" q9)
+                 (1 2 3 4)
+                 (5 6 7 8)
+                 (9 10 11 12))
+               '(q9 "a"))
+              '((q9 "a")
+                (4 1)
+                (8 5)
+                (12 9)))
+
+(define desired-columns
+  '("Primary Instructor"
+    "Emplid"
+    "Term"))
+
+(define data-2118-2158
+  (csv-extract-columns
+   (call-with-input-file "/Users/clements/clements/datasets/cpe-123-rosters-2118-2158.csv"
+     csv->list)
+   desired-columns))
+
+(first data-2118-2158)
+
+(define data-2168
+  (csv-extract-columns
+   (call-with-input-file
+       "/Users/clements/clements/datasets/cpe-123-rosters-2168.csv"
+     (λ ([port : Input-Port])
+       (begin (discard-bom port)
+              (csv->list port))))
+   desired-columns))
+
+(define student-instructor-data
+  (cons (first data-2118-2158)
+        (remove-duplicates
+         (append
+          (rest data-2118-2158)
+          (rest data-2168)))))
+
+(define student-123-instructors
+  (make-table '(instructor student 123_qtr)
+   (for/list : (Listof (Vector String String Natural))
+       ([l (in-list (rest student-instructor-data))])
+     (ann (vector (first l)
+                  (pad-to-9 (second l))
+                  (qtr-text->qtr (third l)))
+          (Vector String String Natural)))
+   #:permanent "student_instructors_123"
+   #:use-existing #t
+   ))
   
 (printf "done building databases from csv files.\n")
 

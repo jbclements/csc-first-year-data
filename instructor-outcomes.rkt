@@ -7,100 +7,6 @@
          "student-data.rkt"
          "table-sqlite.rkt")
 
-;; strip a leading byte order mark from an input port
-(define (discard-bom p)
-  (void (regexp-try-match #rx"^\uFEFF" p)))
-
-;; given a number represented as a string, pad with leading
-;; zeros to get to length 9
-(define (pad-to-9 s)
-  (define diff (- 9 (string-length s)))
-  (cond [(<= 0 diff)
-         (string-append (apply string (for/list ([i (in-range diff)]) #\0))
-                        s)]
-        [else
-         (error 'pad-to-9
-                "string of length <= 9"
-                0 s)]))
-
-(define (qtr-text->qtr str)
-  (match str
-    [(regexp #px"^Fall Quarter ([[:digit:]]+)$" (list _ y))
-     (+ 2008 (* 10 (modulo (string->number y) 100)))]))
-
-
-;; copied from rebuild-databases. Should probably be in a library:
-;; find the index of an element in a list
-(define (find-pos elt l)
-  (let loop ([remaining l] [i 0])
-    (cond [(empty? remaining) (error 'find-pos "couldn't find element: ~v"
-                                     elt)]
-          [else (cond [(equal? (first remaining) elt) i]
-                      [else (loop (cdr remaining) (add1 i))])])))
-
-;; given csv list (where first element is titles) and a list of
-;; desired column headers, return a csv list containing only those
-;; columns (in the order specified by colnames
-(define (csv-extract-columns lines colnames)
-  (define desired-indices
-    (for/list ([colname colnames]) (find-pos colname (first lines))))
-  (for/list ([line (in-list lines)])
-    (for/list ([idx (in-list desired-indices)])
-      (list-ref line idx))))
-
-(require rackunit)
-(check-equal? (csv-extract-columns
-               '(("a" "zz" "b" q9)
-                 (1 2 3 4)
-                 (5 6 7 8)
-                 (9 10 11 12))
-               '(q9 "a"))
-              '((q9 "a")
-                (4 1)
-                (8 5)
-                (12 9)))
-
-(define desired-columns
-  '("Primary Instructor"
-    "Emplid"
-    "Term"))
-
-(define data-2118-2158
-  (csv-extract-columns
-   (call-with-input-file "/Users/clements/clements/datasets/cpe-123-rosters-2118-2158.csv"
-     csv->list)
-   desired-columns))
-
-(first data-2118-2158)
-
-(define data-2168
-  (csv-extract-columns
-   (call-with-input-file
-       "/Users/clements/clements/datasets/cpe-123-rosters-2168.csv"
-     (λ (port)
-       (begin (discard-bom port)
-              (csv->list port))))
-   desired-columns))
-
-(define student-instructor-data
-  (cons (first data-2118-2158)
-        (remove-duplicates
-         (append
-          (rest data-2118-2158)
-          (rest data-2168)))))
-
-(define student-123-instructors
-  (make-table '(instructor student 123_qtr)
-   (for/list ([l (in-list (rest student-instructor-data))])
-     (vector (first l)
-             (pad-to-9 (second l))
-             (qtr-text->qtr (third l))))
-   #:permanent "student_instructors_123"
-   #:use-existing #t
-   ))
-
-(printf "students in the 123 list: ~v\n" (length (rest student-instructor-data)))
-
 (define major-student-123-instructors
   (make-table-from-select
    (inner-join student-123-instructors
@@ -468,16 +374,6 @@
                 #:permanent (string-append temptable "b")
                 #:use-existing #t))
 
-  (define instructors-of-skipped-102s
-    (inner-join source-table 
-                (make-table '(student)
-                            got-a-grade-in-103-but-not-102
-                            #:permanent (string-append temptable "c")
-                            #:use-existing #t)
-                '(student)
-                #:permanent (string-append temptable "d")
-                #:use-existing #t))
-  
   (printf "# of students that skipped 101, by 123 instructor\n")
   (define skipped-101
     (table-select instructors-of-skipped-101s
