@@ -1,6 +1,6 @@
 #lang racket
 
-(require 2htdp/image
+(require (except-in 2htdp/image line)
          db/base
          db/postgresql
          csse-scheduling/canonicalize)
@@ -15,6 +15,7 @@
   (postgresql-connect
    #:database "csseprogress"
    #:user "scheduler"
+   #:password "aoeuidht"
    #:port 13432
  ))
 
@@ -44,6 +45,10 @@
    (group-by (vref 0) allofthem)
    <
    #:key first-qtr))
+
+(require plot)
+(plot (density (map length user-records)
+               0.05))
 
 (define index-row
   (apply
