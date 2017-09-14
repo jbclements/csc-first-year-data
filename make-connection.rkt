@@ -16,10 +16,11 @@
   [connection-maker (parameter/c
                      (-> connection?))]
   ;; a replacement connection-maker for use directly on desmond
-  [local-connect (-> connection?)]))
+  [local-connect (-> connection?)]
+  [database-name (parameter/c string?)]))
 
 ;; the user to use for making the connection
-(define USER "fad")
+(define USER "scheduler")
 ;; terrible low-security password
 (define PASSWORD "aoeuidht")
 
@@ -29,18 +30,20 @@
    #:user USER
    #:password PASSWORD
    #:port 13432
-   #:database "cssegrades"))
+   #:database (database-name)))
 
 ;; connect to the local database
 (define (local-connect)
   (postgresql-connect #:user USER
                       #:password PASSWORD
                       #:port 5432
-                      #:database "cssegrades"))
+                      #:database (database-name)))
 
 ;; the parameter that controls how connections are made.
 (define connection-maker
   (make-parameter tcp-connect))
+
+(define database-name (make-parameter "cssegrades"))
 
 ;; make a connection by calling the current value of the connection-maker parameter
 (define/memo (make-connection)
