@@ -19,7 +19,9 @@
 (major-entry-stats "SE")
 
 (require plot)
-(plot (discrete-histogram (major-entry-stats "SE")))
+(plot (discrete-histogram (major-entry-stats "SE")) #:title "SE")
+(plot (discrete-histogram (major-entry-stats "CSC")) #:title "CSC")
+(plot (discrete-histogram (major-entry-stats "CPE")) #:title "CPE")
 
 ;; ONE-OFF SCRIPT:
 
