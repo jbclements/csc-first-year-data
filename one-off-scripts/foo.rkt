@@ -9,11 +9,12 @@
 (define conn (make-connection))
 
 (define ids
-  (map emplid->hashed
-       (map tenth
-            (rest
-             (call-with-input-file "/tmp/Class Listing.csv"
-               csv->list)))))
+  (remove-duplicates
+   (map emplid->hashed
+        (map tenth
+             (rest
+              (call-with-input-file "/tmp/Class Listing.csv"
+                csv->list))))))
 
 (define se-majors
   (map vector->list

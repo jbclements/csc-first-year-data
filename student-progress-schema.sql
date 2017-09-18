@@ -24,10 +24,19 @@ CREATE VIEW "entry_qtrs"
 CREATE TEMPORARY VIEW "passed_308"
   AS SELECT id FROM course_grade WHERE course='csc308' GROUP BY id;
 
+CREATE TEMPORARY VIEW "passed_305"
+  AS SELECT id FROM course_grade WHERE course='csc305' GROUP BY id;
+
 SELECT entry_qtrs.id,min FROM (entry_qtrs INNER JOIN majors ON entry_qtrs.id = majors.id)
   WHERE entry_qtrs.id NOT IN (SELECT id FROM passed_308)
    AND major = 'SE'
    AND min < 2158;
+
+SELECT min,count(*) FROM (entry_qtrs INNER JOIN majors ON entry_qtrs.id = majors.id)
+  WHERE entry_qtrs.id NOT IN (SELECT id FROM passed_305)
+   AND major = 'SE'
+   AND min < 2158
+   GROUP BY min;
 
 
 GROUP BY min
