@@ -13,9 +13,6 @@
 ;; need old catalogs to generate this info.
 (define oldest-canonical-class-qtr 2078)
 
-;; the table contains majors, which are presumably current as of
-;; the last quarter with a grade. (A bit dangerous here.)
-(define major-quarter 2172)
 
 ;; strip a leading byte order mark from an input port
 ;(: discard-bom (Input-Port -> Void))
@@ -100,13 +97,18 @@ old-records
                (define coursenum (second (second c)))
                ;; special cases, sigh
                (match (list subj coursenum)
+                 ;; for all of these courses, the student receives the same
+                 ;; credit that they would for the course with the first
+                 ;; character removed from the coursenum.
                  [(or (list "CPE" "P400")
                       (list "CPE" "P329")
                       (list "CSC" "S490")
                       (list "CPE" "X105")
                       (list "CPE" "P315")
                       (list "CPE" "P225")
-                      (list "CPE" "P349"))
+                      (list "CPE" "P349")
+                      (list "CPE" "P357")
+                      (list "CPE" "P133"))
                   (canonicalize/qtr (first c)
                                     subj
                                     (substring coursenum 1))]
@@ -130,7 +132,14 @@ old-records
 (define have-grades-quarters
   (remove-duplicates (map second have-grades)))
 
-(when (not (set-empty?
+  (printf "quarters with grades: ~v\n" have-grades-quarters)
+
+  (define last-grade-quarter
+    (apply max have-grades-quarters))
+
+  (define version-str (~a last-grade-quarter "-1"))
+
+  (when (not (set-empty?
             (set-intersect
              (list->set poly-planner-quarters)
              (list->set have-grades-quarters))))
@@ -139,7 +148,6 @@ old-records
          (set-intersect
              (list->set poly-planner-quarters)
              (list->set have-grades-quarters))))
-
 
 (define lookup-fails
   (filter (λ (map-elt)
@@ -169,9 +177,11 @@ old-records
          (second row)
          (hash-ref canonical-map
                    (list (second row) (split-course (third row))))
-         (fourth row))))
+         (fourth row)
+         version-str)))
 
-(take out-data 15)
+  (pretty-display (take out-data 15))
+  (newline)
 
 (check-duplicates out-data)
 
@@ -183,13 +193,23 @@ old-records
                (apply string-append
                       (add-between (map ~a row) "\t")))))))
 
+
+
 (define (generate-majors-data)
+
+  ;; the table contains majors, which are presumably current as of
+;; the last quarter with a grade. (A bit dangerous here.)
+(define major-quarter 2176)
+
+  (define version-str (~a major-quarter "-1"))
+  
 (define initial-majors-data
   (remove-duplicates
    (for/list ([row (in-list rows)])
      (list (emplid->hashed (list-ref row 1))
            major-quarter
-           (list-ref row 0)))))
+           (list-ref row 0)
+           version-str))))
 
 
 (block
@@ -227,7 +247,7 @@ old-records
           hash-collisions)))
 
 
-(call-with-output-file "/tmp/ids.csv"
+#;(call-with-output-file "/tmp/ids.csv"
   (λ (port)
     (for ([row (in-list initial-ids-data)])
       (fprintf port
@@ -236,7 +256,7 @@ old-records
                       (add-between (map ~a row) "\t"))))))
 
 ;; one-off script to find SE majors that haven't taken 308:
-
+#;(
 (define uh-ohs
   (map first
        (map vector->list
@@ -263,5 +283,5 @@ old-records
     #("f780d04136cbf3a3e2aa" 2148)
     #("26d74fe1ac52a6bffbda" 2148)))))
 
-(filter (λ (row) (member (first row) uh-ohs)) initial-ids-data)
+(filter (λ (row) (member (first row) uh-ohs)) initial-ids-data))
 
