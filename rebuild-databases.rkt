@@ -290,13 +290,13 @@
      (sequence->list (in-table-column all-grades-table 'student))
      (Listof String)))
 
-(length early-students)
-(length all-students)
+(printf "early students: ~v\n" (length early-students))
+(printf "all students: ~v\n" (length all-students))
 (define non-early-students
   ((inst map (Vectorof String) String)
    (inst vector String)
        (remove* early-students all-students)))
-  
+
 (define non-early-table
   (make-table '(student) non-early-students
               #:permanent "non_early_students"

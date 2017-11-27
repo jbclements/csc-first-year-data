@@ -4,6 +4,7 @@
          "table-sqlite.rkt"
          "student-data.rkt"
          "grades.rkt"
+         csse-scheduling/qtr-math
          rackunit)
 
 
@@ -118,7 +119,7 @@
   (define mutable-accum (list #f (trace-facts orig-trace)))
   (full-trace
    (trace-student orig-trace)
-   (for/list ([qtr (in-list (qtrs-in-range earliest-qtr latest-qtr))]
+   (for/list ([qtr (in-list (qtrs-in-range earliest-qtr latest-qtr #:include-summer #t))]
               [qtr-idx (in-naturals)])
      (match-define (list last-fact facts) mutable-accum)
      (match facts

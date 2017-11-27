@@ -1,6 +1,7 @@
 #lang racket
 
-(require csv-reading)
+(require csv-reading
+         "grades.rkt")
 
 #;((define all-students
   (call-with-input-file "/tmp/ap-students-102-stats-2158-.txt"
@@ -87,9 +88,6 @@ all-curricula
 (check-equal? (grade->gpa "WU") 0.0)
 (check-equal? (grade->gpa "GU") 0.0)
 
-(define passing-grades
-  '("A" "A-" "B+" "B" "B-" "C+" "C" "C-"))
-
 
 
 (define (strip-quotes grade)
@@ -106,10 +104,10 @@ all-curricula
 (define all-gpa-levels
   (cons "GU" (remove-duplicates (map second grades-by-curriculum))))
 
-(define not-passing-grades
-  (remove* passing-grades all-gpa-levels))
+(define dfw-grades
+  (remove* success-grades all-gpa-levels))
 
-(printf "non-passing grades: ~v\n" not-passing-grades)
+(printf "non-passing grades: ~v\n" dfw-grades)
 
 (define summed-grades-by-curriculum
 (map
@@ -173,7 +171,7 @@ all-curricula
         (for ([i (in-range (curriculum-grade-count curriculum grade))])
           (fprintf port "~a,~a\n" (curriculum-name curriculum)
                    #;grade
-                   (cond [(member grade passing-grades) "PASS"]
+                   (cond [(member grade success-grades) "PASS"]
                      [else "FAIL"])))))))
 
 (define curriculum-samples
