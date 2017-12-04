@@ -31,7 +31,7 @@
   (λ ([v : (Vectorof T)]) (vector-ref v idx)))
 
 ;; given a quarter, go to the "next" quarter, skipping
-;; over summer (and the nonexistent 0)
+;; the nonexistent 0
 (: qtr-incr (Natural -> Natural))
 (define (qtr-incr qtr)
   (define incr
