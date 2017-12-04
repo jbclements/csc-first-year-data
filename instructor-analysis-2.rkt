@@ -223,5 +223,5 @@ all-curricula
 ;curriculum     4    3.1  0.7766   0.391  0.815
 ;Residuals   1016 2020.0  1.9882
 ;; once again: almost freakishly consistent. definitely no
-;; evidence to support null hypothesis.
+;; evidence to support rejecting null hypothesis.
 
