@@ -1,6 +1,6 @@
 #lang racket
 
-(require "table-sqlite.rkt"
+(require sqlite-table
          "student-data.rkt"
          "grades.rkt"
          plot

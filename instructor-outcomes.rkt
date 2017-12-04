@@ -4,8 +4,8 @@
 ;; first time a student takes 103?
 
 (require csv-reading
-         "student-data.rkt"
-         "table-sqlite.rkt")
+         sqlite-table
+         "student-data.rkt")
 
 (define major-student-123-instructors
   (make-table-from-select

@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require "table-sqlite.rkt"
+(require sqlite-table
          "student-data.rkt"
          "grades.rkt"
          math/statistics

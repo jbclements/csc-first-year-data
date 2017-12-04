@@ -1,7 +1,7 @@
 #lang racket
 
 (require "animation-back-end.rkt"
-         "table-sqlite.rkt"
+         sqlite-table
          "student-data.rkt"
          "grades.rkt"
          csse-scheduling/qtr-math

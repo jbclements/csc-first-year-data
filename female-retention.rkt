@@ -3,7 +3,7 @@
 ;; computing retention for students taking 123 in 2118 through 2148
 
 (require "student-data.rkt"
-         "table-sqlite.rkt"
+         sqlite-table
          "grades.rkt")
 
 (define all-123-grades

@@ -6,8 +6,6 @@
 
 (require csv-reading)
 
-#;(require "table-sqlite.rkt")
-
 ;; first last emplid
 (define names-table
   (call-with-input-file

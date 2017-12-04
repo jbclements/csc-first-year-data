@@ -6,9 +6,10 @@
 
 (require "grades.rkt")
 
-(require/typed "table-sqlite.rkt"
+(require/typed sqlite-table
                [#:opaque Table table?]
                [find-table (String -> Table)])
+
 
 (define ap-facts-table
   (find-table "ap_scores"))
