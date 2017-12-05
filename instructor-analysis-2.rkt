@@ -1,8 +1,22 @@
 #lang racket
 
 (require csv-reading
+         sqlite-table
          "grades.rkt")
 
+;; I was doing this with CSV files. Now I'm going to try doing it directly with the database.
+
+(define big-student-table
+  (find-table "big_student_table"))
+
+(define student-rows
+  (table-select big-student-table
+                '(student instructor grade grade:1 grade:2 grade:3 score)))
+
+
+
+
+#;(
 
 ;; there are three dimensions here:
 ;; 1) class (101 or 102)
@@ -284,7 +298,7 @@ all-curricula
             #:color i))
  #:x-label "GPA of non-AP student in 101"
  #:y-label "density of non-AP students with this GPA"
- "/tmp/non-ap-101-grades-2118+.pdf")
+ "/tmp/non-ap-101-grades-2118+.pdf"))
 
 ;; RESULTS FOR 102:
 
