@@ -24,51 +24,21 @@
 (printf "all students taking 123: ~v\n"
         (table-select first-time-123s '((count))))
 
-(/ 1 0)
-(define major-student-123s
-  (inner-join first-time-123s
-              (make-table-from-select grade-facts-table
-                                      '(student qtr)
-                                      #:where '((= class "CPE 123"))
-                                      #:permanent "5a26316e"
-                                      #:use-existing #t)
-              '(student qtr)
-              #:permanent "5a26316f"
-              #:use-existing #t))
-
-(check-no-student-dups major-student-123s)
-(define 123-student-count
-  (vector-ref (first (table-select major-student-123s '((count)))) 0))
-
-(printf "all majors taking 123: ~v\n"
-        123-student-count)
-
-(/ 1 0)
 
 (define major-student-123-instructors
-  (make-table-from-select
-   (inner-join student-123-instructors
-               grade-facts-table
-               '(student)
-               #:permanent "57bb"
-               #:use-existing #t)
-   '(student instructor 123_qtr)
-   #:group-by '(student instructor 123_qtr)
-   #:permanent "57c0b455"
-   #:use-existing #t))
+  (inner-join first-time-123s
+              student-123-instructors
+              '(student 123_qtr)
+              #:permanent "5a263171"
+              #:use-existing #t))
 
-;; make sure nobody took 123 twice...
-(unless (equal?
-         (table-select major-student-123-instructors '((count)))
-         (list
-          (vector
-           (length
-            (table-select major-student-123-instructors '((count))
-                          #:group-by '(student instructor))))))
-  (error 'ono201708happyweddingandybrenna))
-
-(printf "students in the 123 list also in the grade list: ~v\n"
-        (table-size major-student-123-instructors))
+(check-no-student-dups major-student-123-instructors)
+(define 123-student-count
+  (vector-ref (first (table-select major-student-123-instructors
+                                   '((count))))
+              0))
+(printf "majors taking 123 for which we have instructors: ~v\n"
+        123-student-count)
 
 (printf "count by instructor of students in 123 in the major\n")
 (table-select major-student-123-instructors '(instructor (count))
@@ -82,6 +52,8 @@
               #:permanent "first_time_101"
               #:use-existing #t))
 
+(check-no-student-dups first-time-101s)
+
 (define first-time-102s
   (make-table '(student qtr class)
               (table-select grade-facts-table '(student (min qtr) class)
@@ -89,6 +61,8 @@
                             #:group-by '(student))
               #:permanent "first_time_102"
               #:use-existing #t))
+
+(check-no-student-dups first-time-102s)
 
 (define first-time-103s
   (make-table '(student qtr class)
@@ -98,6 +72,10 @@
               #:permanent "first_time_103"
               #:use-existing #t))
 
+(check-no-student-dups first-time-103s)
+
+
+
 (define first-time-101-grades
   (inner-join first-time-101s
               grade-facts-table
@@ -105,14 +83,8 @@
               #:permanent "ft_101_grades"
               #:use-existing #t))
 
-(check-duplicates
- (table-select first-time-101-grades
-               '(student qtr class)))
+(check-no-student-dups first-time-101-grades)
 
-(table-select grade-facts-table
-              '*
-              #:where '((= student
-                           "000422912")))
 
 (define first-time-102-grades
   (inner-join first-time-102s
@@ -121,6 +93,8 @@
               #:permanent "ft_102_grades"
               #:use-existing #t))
 
+(check-no-student-dups first-time-102-grades)
+
 (define first-time-103-grades
   (inner-join first-time-103s
               grade-facts-table
@@ -128,11 +102,15 @@
               #:permanent "ft_103_grades"
               #:use-existing #t))
 
+(check-no-student-dups first-time-103-grades)
+
 (define has-ap
   (make-table-from-select ap-facts-table '(student)
                           #:group-by '(student)
                           #:permanent "students_with_ap"
                           #:use-existing #t))
+
+(check-no-student-dups has-ap)
 
 
 (define big-table-1
@@ -158,6 +136,8 @@
    #:permanent "5a261385"
    #:use-existing #t))
 
+(check-no-student-dups big-table-1)
+
 ;; goofy fixup for spring 2017: 103 should be counted as 102:
 
 (define big-table-2
@@ -171,6 +151,8 @@
    '(student)
    #:permanent "big_student_table"
    #:use-existing #t))
+
+(check-no-student-dups big-table-2)
 
 ;; WOW... I think the rest of this file is ALL unnecessary:
 #;(

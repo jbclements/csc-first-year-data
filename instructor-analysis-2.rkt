@@ -2,6 +2,7 @@
 
 (require csv-reading
          sqlite-table
+         (only-in db sql-null?)
          "grades.rkt")
 
 ;; I was doing this with CSV files. Now I'm going to try doing it directly with the database.
@@ -11,9 +12,95 @@
 
 (define student-rows
   (table-select big-student-table
-                '(student instructor grade grade:1 grade:2 grade:3 score)))
+                '(instructor grade grade:1 grade:2 grade:3 score)))
+
+;; given an instructor, produce the curriculum label
+(define (curriculum-label instructor)
+  (match instructor
+    ("Bellardo, John Michael" "Mobile")
+    ("DeBruhl II, Bruce Edward" "Security")
+    ("Clements, John B." "Music")
+    ("Haungs, Michael L." "Gaming")
+    ("Janzen, David S." "Mobile")
+    ("Peterson, Zachary N.J." "Security")
+    ("Seng, John S." "Robotics")
+    ("Smith, Hugh M." "Robotics")
+    ("Wood, Zoe J." "Art")
+    ("Workman, Julie A." "Art")))
 
 
+(define (took-ap? row)
+  (not (sql-null? ((vref 5) row))))
+
+(length (filter took-ap? student-rows))
+
+(define (success-grade? g)
+  (member g success-grades))
+
+;; add information to differentiate students that skipped a class
+;; from ones that bailed out.
+(define decorated
+  (for/list ([row (in-list student-rows)])
+    (match-define
+      (vector instructor 101-grade 102-grade 103-grade 103-2174-grade score)
+      row)
+    (define took-a-class-after-101
+      (or (not (sql-null? 102-grade))
+          (not (sql-null? 103-grade))))
+    (define 101-grade-plus
+      (or (and (not (sql-null? 101-grade)) 101-grade)
+          (and took-a-class-after-101 "SKIPPED")
+          "BAILED"))
+    (define took-a-class-after-102
+      (not (sql-null? 103-grade)))
+    (define 102-grade-plus
+      (or (and (not (sql-null? 102-grade)) 102-grade)
+          (and (not (sql-null? 103-2174-grade)) 103-2174-grade)
+          (and took-a-class-after-102 "SKIPPED")
+          "BAILED"))
+    
+    (list (curriculum-label instructor)
+           101-grade-plus 102-grade-plus score)))
+
+(define the-filter
+  (λ (row) (not (sql-null? (fourth row)))))
+
+
+(define projection-101
+  (for/list ([row (in-list (filter the-filter decorated))]
+             #:when (not (equal? (second row) "SKIPPED")))
+    (list (first row)
+          (match (second row)
+            ["SKIPPED" "SKIPPED"]
+            ["BAILED" "BAILED"]
+            [(? success-grade? s) "PASS"]
+            [other "FAIL"]))))
+
+(define projection-102
+  (for/list ([row (in-list (filter the-filter decorated))]
+             #:when (not (equal? (third row) "SKIPPED")))
+    (list (first row)
+          (match (third row)
+            ["SKIPPED" "SKIPPED"]
+            ["BAILED" "BAILED"]
+            [(? success-grade? s) "PASS"]
+            [other "FAIL"]))))
+
+(length (append projection-101
+                projection-102))
+
+(call-with-output-file "/tmp/grade-samples.csv"
+  #:exists 'truncate
+  (λ (port)
+    (fprintf port "curriculum,grade\n")
+    (for ([row (in-list (append projection-101
+                                projection-102))])
+      (fprintf port "~a,~a\n"
+               (first row)
+               (second row)
+               #;(cond [(member grade success-grades) "PASS"]
+                     [(equal? grade "GU") "GAVE UP"]
+                     [else "FAIL"])))))
 
 
 #;(
