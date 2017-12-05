@@ -289,6 +289,24 @@
                 #:permanent "instructor_grades_102_without_ap_p5"
                 #:use-existing #t))
 
+(define pre-2168-instructor-grades-101
+  (natural-join first-time-101-grades
+                pre-2168-123-instructors 
+                #:permanent "instructor_grades_101_p6"
+                #:use-existing #t))
+
+(define pre-2168-instructor-grades-101-with-ap
+  (natural-join first-time-101-grades
+                pre-2168-123-instructors-with-ap
+                #:permanent "instructor_grades_101_with_ap_p6"
+                #:use-existing #t))
+
+(define pre-2168-instructor-grades-101-without-ap
+  (natural-join first-time-101-grades
+                pre-2168-123-instructors-without-ap
+                #:permanent "instructor_grades_101_without_ap_p6"
+                #:use-existing #t))
+
 (define pre-2168-instructor-grades-102
   (natural-join first-time-102-grades
                 pre-2168-123-instructors 
@@ -314,6 +332,7 @@
                   #:group-by '(instructor grade)))
   (csv-write results file))
 
+;; post-2108, 101 only
 (write-stats post-2108-instructor-grades-101
              "/tmp/all-students-101-stats-2118+.txt")
 (write-stats post-2108-instructor-grades-101-with-ap
@@ -321,6 +340,7 @@
 (write-stats post-2108-instructor-grades-101-without-ap
              "/tmp/non-ap-students-101-stats-2118+.txt")
 
+;; pre-2158, 102 only
 (write-stats pre-2158-instructor-grades-102
              "/tmp/all-students-102-stats-2148-.txt")
 (write-stats pre-2158-instructor-grades-102-with-ap
@@ -328,6 +348,15 @@
 (write-stats pre-2158-instructor-grades-102-without-ap
              "/tmp/non-ap-students-102-stats-2148-.txt")
 
+;; pre-2168, 101 only
+(write-stats pre-2168-instructor-grades-101
+             "/tmp/all-students-101-stats-2158-.txt")
+(write-stats pre-2168-instructor-grades-101-with-ap
+             "/tmp/ap-students-101-stats-2158-.txt")
+(write-stats pre-2168-instructor-grades-101-without-ap
+             "/tmp/non-ap-students-101-stats-2158-.txt")
+
+;; pre-2168, 102 only
 (write-stats pre-2168-instructor-grades-102
              "/tmp/all-students-102-stats-2158-.txt")
 (write-stats pre-2168-instructor-grades-102-with-ap
