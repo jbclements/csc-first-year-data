@@ -63,12 +63,15 @@
            101-grade-plus 102-grade-plus score)))
 
 (define the-filter
-  (λ (row) (not (sql-null? (fourth row)))))
+  ;; take all students
+  (λ (row) row)
+  ;; take only AP students
+  #;(λ (row) (not (sql-null? (fourth row))))
+  )
 
 
-(define projection-101
-  (for/list ([row (in-list (filter the-filter decorated))]
-             #:when (not (equal? (second row) "SKIPPED")))
+(define projection-101-pre
+  (for/list ([row (in-list (filter the-filter decorated))])
     (list (first row)
           (match (second row)
             ["SKIPPED" "SKIPPED"]
@@ -76,15 +79,22 @@
             [(? success-grade? s) "PASS"]
             [other "FAIL"]))))
 
-(define projection-102
-  (for/list ([row (in-list (filter the-filter decorated))]
-             #:when (not (equal? (third row) "SKIPPED")))
+(define projection-101 (filter (λ (row) (not (equal? (second row)
+                                                     "SKIPPED")))
+                               projection-101-pre))
+
+(define projection-102-pre
+  (for/list ([row (in-list (filter the-filter decorated))])
     (list (first row)
           (match (third row)
             ["SKIPPED" "SKIPPED"]
             ["BAILED" "BAILED"]
             [(? success-grade? s) "PASS"]
             [other "FAIL"]))))
+
+(define projection-102 (filter (λ (row) (not (equal? (second row)
+                                                     "SKIPPED")))
+                               projection-102-pre))
 
 (length (append projection-101
                 projection-102))
@@ -101,6 +111,33 @@
                #;(cond [(member grade success-grades) "PASS"]
                      [(equal? grade "GU") "GAVE UP"]
                      [else "FAIL"])))))
+
+(define dfw-grade? (compose not success-grade?))
+
+(define final-disposition
+  (for/list ([row (in-list decorated)])
+    (match row
+      ;; those who bailed:
+      [(list _ "BAILED" "BAILED" _) 'bailed-before-101]
+      [(list _ (? dfw-grade?) "BAILED" _)
+       'bailed-after-101-fail]
+      [(list _ (? success-grade?) "BAILED" _) 'bailed-after-101-pass]
+      ;; neither one can be "BAILED" now:
+      [(list _ (? success-grade?) (? success-grade?) _) 'alles-gut]
+      [(list _ "SKIPPED" (? success-grade?) _) 'alles-gut]
+      [(list _ "SKIPPED" "SKIPPED" _) 'alles-gut]
+      [(list _ (? success-grade?) (? dfw-grade?) _)
+       'failed-102]
+      [(list _ (? dfw-grade?) (? dfw-grade?) _)
+       'failed-both]
+      [(list _ (? dfw-grade?) (? success-grade?) _)
+       'fail-pass]
+      [other (error 'final-disposition "unexpected configuration: ~e" other)])))
+
+(map (λ (g) (list (first g) (length g) (exact->inexact
+                                        (/ (length g)
+                                           (length decorated)))))
+     (group-by (λ (x) x) final-disposition))
 
 
 #;(

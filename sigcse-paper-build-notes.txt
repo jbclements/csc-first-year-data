@@ -1,0 +1,10 @@
+To build data for paper (2017-12-05):
+
+1) run "rebuild-databases.rkt" to build tables
+2) run "instructor-outcomes.rkt" to build more tables
+3) run "instructor-analysis.rkt" with different filter selections
+4) For each filter selection, use R with
+foo = read.csv('/tmp/grade-table.csv')
+... and then run plot(foo)
+
+... oh but what about the other racket plots? Sigh. Not sure right now.
