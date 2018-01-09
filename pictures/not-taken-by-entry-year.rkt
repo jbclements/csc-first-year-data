@@ -25,17 +25,24 @@
 
 ;; ONE-OFF SCRIPT:
 
+(define course-id "csc453")
+
 (query-exec
  conn
-(~a
-"CREATE TEMPORARY VIEW passed_453"
-"  AS SELECT id FROM course_grade WHERE course='csc453' GROUP BY id;"))
+ ;; NB: can't use parameter for this kind of statement:
+ (~a
+  "CREATE TEMPORARY VIEW passed_the_class"
+  "  AS SELECT id FROM course_grade"
+  "  WHERE course = '"course-id"' GROUP BY id;"
+  ))
 
-(length
- (query-rows
+(define ((vref idx) v) (vector-ref v idx))
+
+(map (vref 0)
+(query-rows
  conn
  (~a "SELECT entry_qtrs.id FROM (entry_qtrs INNER JOIN majors ON entry_qtrs.id = majors.id)
-  WHERE entry_qtrs.id NOT IN (SELECT id FROM passed_453)
+  WHERE entry_qtrs.id NOT IN (SELECT id FROM passed_the_class)
    AND (major = 'CSC' OR major='CPE')
    AND min <= 2148"
      " GROUP BY entry_qtrs.id"
