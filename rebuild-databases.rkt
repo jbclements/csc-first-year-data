@@ -1,4 +1,4 @@
-#lang typed/racket
+#lang typed/racket  
 
 ;; this file builds a table from the CSV data in student-data.csv.
 
