@@ -185,6 +185,21 @@
               ;(inexact->exact (round (* 1000 (string->number (col-ref row "UNITS_EARNED")))))
               (col-ref row "GRADE"))))))
 
+(define (create-ap-score-table)
+  (postgresql-format
+   "/tmp/ap_score.tsv"
+   (remove-duplicates
+    (filter
+     (λ (newrow)
+       (not (equal? (second newrow) "")))
+     (for/list ([row (in-list past-grade-rows)])
+       (list (emplid->hashed (col-ref row "EMPLID"))
+             (col-ref row "TEST")
+             (match (col-ref row "SCORE")
+               [(regexp #px"^([0-5])\\.00$" (list _ scorestr))
+                (string->number scorestr)]
+               ["" ""])))))))
+
 ;; GENERATING GRADE TABLE:
 ;; effect: overwrites /tmp/progress.csv
 (define (create-grade-table)

@@ -15,3 +15,4 @@ CREATE TABLE "class_grade" (
   "grade" varchar(10)
   PRIMARY KEY ("id","qtr","subject","num")
 );
+
